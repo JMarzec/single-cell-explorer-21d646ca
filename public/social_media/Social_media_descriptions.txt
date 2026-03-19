@@ -1,0 +1,31 @@
+###########################
+# YouTube
+###########################
+
+🔬 AccelBio Single-Cell Explorer — Interactive Demo | Explore single-cell datasets with our web-based tool. Navigate t-SNE/UMAP scatter plots, search genes, compare expression across clusters with violin & dot plots, and run differential expression analysis — all in your browser. No installation needed. #SingleCell #Bioinformatics #scRNAseq #DataVisualization #AccelBio
+Try it → https://accelbio-single-cell-explorer.lovable.app
+
+
+###########################
+# Instagram
+###########################
+
+🧬 Explore single-cell data like never before. Our interactive Single-Cell Explorer lets you visualise clusters, search genes, and compare expression — right in your browser. Try it now → link in bio 🔗 #SingleCell #Bioinformatics #CellBiology #DataScience #BioTech #AccelBio
+Try it → https://accelbio-single-cell-explorer.lovable.app
+
+
+###########################
+# LinkedIn
+###########################
+
+Introducing AccelBio's Single-Cell Explorer — a browser-based tool for interactive single-cell data analysis. Features include t-SNE/UMAP visualisation, gene expression overlay, multi-gene comparison with violin and dot plots, and differential expression analysis. Built for researchers who need fast, intuitive access to their data. #Bioinformatics #SingleCellGenomics #DataVisualization
+Try it → https://accelbio-single-cell-explorer.lovable.app
+
+
+###########################
+# Twitter/X
+###########################
+
+🔬 New: AccelBio Single-Cell Explorer — explore t-SNE/UMAP embeddings, overlay gene expression, and compare clusters with violin & dot plots. All in the browser. Try it → https://accelbio-single-cell-explorer.lovable.app #scRNAseq #bioinformatics
+
+
