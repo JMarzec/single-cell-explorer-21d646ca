@@ -7,7 +7,7 @@ import {
   Search,
   BarChart3,
   GitCompareArrows,
-  Layers,
+  
   Palette,
   ArrowRight,
   ChevronDown,
