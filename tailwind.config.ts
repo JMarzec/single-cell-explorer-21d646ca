@@ -2,7 +2,12 @@ import type { Config } from "tailwindcss";
 
 export default {
   darkMode: ["class"],
-  content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
+  content: [
+    "./pages/**/*.{ts,tsx}",
+    "./components/**/*.{ts,tsx}",
+    "./app/**/*.{ts,tsx}",
+    "./src/**/*.{ts,tsx}",
+  ],
   prefix: "",
   theme: {
     container: {
@@ -13,6 +18,10 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ["Inter", "system-ui", "sans-serif"],
+        mono: ["JetBrains Mono", "monospace"],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -57,6 +66,34 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        expression: {
+          low: "hsl(var(--expression-low))",
+          mid: "hsl(var(--expression-mid))",
+          high: "hsl(var(--expression-high))",
+        },
+        cluster: {
+          0: "hsl(var(--cluster-0))",
+          1: "hsl(var(--cluster-1))",
+          2: "hsl(var(--cluster-2))",
+          3: "hsl(var(--cluster-3))",
+          4: "hsl(var(--cluster-4))",
+          5: "hsl(var(--cluster-5))",
+          6: "hsl(var(--cluster-6))",
+          7: "hsl(var(--cluster-7))",
+          8: "hsl(var(--cluster-8))",
+          9: "hsl(var(--cluster-9))",
+          10: "hsl(var(--cluster-10))",
+          11: "hsl(var(--cluster-11))",
+          12: "hsl(var(--cluster-12))",
+          13: "hsl(var(--cluster-13))",
+          14: "hsl(var(--cluster-14))",
+        },
+        viz: {
+          background: "hsl(var(--viz-background))",
+          grid: "hsl(var(--viz-grid))",
+          axis: "hsl(var(--viz-axis))",
+          label: "hsl(var(--viz-label))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -65,25 +102,32 @@ export default {
       },
       keyframes: {
         "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: "0",
-          },
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
+        "fade-in": {
+          from: { opacity: "0", transform: "translateY(8px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+        "slide-in-right": {
+          from: { transform: "translateX(100%)" },
+          to: { transform: "translateX(0)" },
+        },
+        pulse: {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.5" },
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "fade-in": "fade-in 0.3s ease-out",
+        "slide-in-right": "slide-in-right 0.3s ease-out",
+        pulse: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
       },
     },
   },
