@@ -204,7 +204,7 @@ export default function Showcase() {
         <div className="container mx-auto px-4 py-24 md:py-36 text-center relative">
           <RevealSection>
             <p className="text-sm font-medium tracking-widest uppercase text-primary mb-4">
-              Product Showcase
+              Browser-Based Single-Cell Analysis
             </p>
             <h1 className="text-4xl md:text-6xl font-bold leading-tight max-w-3xl mx-auto">
               Explore your single-cell data{" "}
