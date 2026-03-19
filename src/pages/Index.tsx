@@ -13,7 +13,7 @@ import { PathwayEnrichment } from "@/components/analysis/PathwayEnrichment";
 import { TrajectoryAnalysis } from "@/components/analysis/TrajectoryAnalysis";
 import { PseudotimeHeatmap } from "@/components/analysis/PseudotimeHeatmap";
 import { calculatePseudotime } from "@/components/analysis/TrajectoryAnalysis";
-import { DatasetUploader } from "@/components/upload/DatasetUploader";
+
 import { generateDemoDataset } from "@/data/demoData";
 import { fetchRemoteDataset } from "@/lib/datasetLoader";
 import { getExpressionData, getMultiGeneExpression, getAveragedExpression, getAnnotationValues, getAnnotationColorMap, calculatePercentile } from "@/lib/expressionUtils";
@@ -22,8 +22,6 @@ import { VisualizationSettings, SingleCellDataset, CellFilterState as CellFilter
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Download } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ProductTour, TourStep } from "@/components/tour/ProductTour";
 
@@ -32,12 +30,6 @@ const tourSteps: TourStep[] = [
     target: "[data-tour='header']",
     title: "Welcome to Single-Cell Explorer",
     description: "This dashboard lets you explore single-cell datasets interactively. The header shows your dataset summary — total cells, genes, and clusters at a glance.",
-    position: "bottom",
-  },
-  {
-    target: "[data-tour='upload']",
-    title: "Upload Your Dataset",
-    description: "Click here to load your own single-cell dataset (JSON format) or use the pre-loaded heart organoid data.",
     position: "bottom",
   },
   {
@@ -329,19 +321,6 @@ const Index = () => {
 
       <main className="flex-1 container mx-auto px-4 py-6">
         {/* Controls row */}
-        <div className="mb-4 flex flex-wrap items-center gap-4" data-tour="upload">
-          <DatasetUploader 
-            onDatasetLoad={handleDatasetLoad} 
-            buttonVariant="outline"
-          />
-          
-          <Button variant="ghost" size="sm" asChild>
-            <a href="/export_template.R" download className="gap-2">
-              <Download className="h-4 w-4" />
-              R Export Script
-            </a>
-          </Button>
-        </div>
 
         {/* Dual Plot Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">

@@ -7,7 +7,7 @@ import {
   Search,
   BarChart3,
   GitCompareArrows,
-  Layers,
+  
   Palette,
   ArrowRight,
   ChevronDown,
@@ -133,22 +133,6 @@ const features: FeatureSection[] = [
     ],
     screenshotAlt: "Display options panel",
     imageUrl: "/showcase/display.png",
-  },
-  {
-    icon: Layers,
-    id: "upload",
-    title: "Upload Your Own Data",
-    description:
-      "Bring your own single-cell dataset in JSON format. The explorer instantly loads your data — no server required, everything runs in the browser.",
-    details: [
-      "JSON format with embeddings & expression",
-      "Client-side processing — no data leaves your machine",
-      "Automatic cluster detection",
-      "Works with any t-SNE / UMAP output",
-    ],
-    screenshotAlt: "Dataset upload interface",
-    imageUrl: "/showcase/upload.png",
-    reverse: true,
   },
 ];
 
@@ -344,8 +328,7 @@ export default function Showcase() {
               Ready to explore?
             </h2>
             <p className="text-muted-foreground max-w-xl mx-auto mb-8">
-              No installation, no sign-up. Load the demo dataset or upload your
-              own — start analysing in seconds.
+              No installation, no sign-up. Load the demo dataset and start analysing in seconds.
             </p>
             <Link
               to="/"
