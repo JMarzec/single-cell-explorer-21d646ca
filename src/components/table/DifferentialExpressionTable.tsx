@@ -9,13 +9,14 @@ import {
   createColumnHelper,
   SortingState,
 } from "@tanstack/react-table";
-import { DifferentialExpression } from "@/types/singleCell";
+import { DifferentialExpression, ClusterInfo } from "@/types/singleCell";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, ArrowUpDown, Search } from "lucide-react";
 
 interface DifferentialExpressionTableProps {
   data: DifferentialExpression[];
+  clusters?: ClusterInfo[];
   onGeneClick?: (gene: string) => void;
 }
 
@@ -23,12 +24,25 @@ const columnHelper = createColumnHelper<DifferentialExpression>();
 
 export function DifferentialExpressionTable({
   data,
+  clusters,
   onGeneClick,
 }: DifferentialExpressionTableProps) {
   const [sorting, setSorting] = useState<SortingState>([
     { id: "logFC", desc: true },
   ]);
   const [globalFilter, setGlobalFilter] = useState("");
+
+  const clusterNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (clusters) {
+      clusters.forEach((c) => {
+        map.set(`Cl_${c.id}`, c.name);
+        map.set(String(c.id), c.name);
+        map.set(c.name, c.name);
+      });
+    }
+    return map;
+  }, [clusters]);
 
   const columns = useMemo(
     () => [
@@ -66,6 +80,19 @@ export function DifferentialExpressionTable({
             {info.getValue()}
           </span>
         ),
+      }),
+      columnHelper.display({
+        id: "cellType",
+        header: "Cell Type",
+        cell: (info) => {
+          const clusterVal = info.row.original.cluster;
+          const name = clusterNameMap.get(clusterVal);
+          return (
+            <span className="text-xs text-muted-foreground">
+              {name || "—"}
+            </span>
+          );
+        },
       }),
       columnHelper.accessor("logFC", {
         header: ({ column }) => (
@@ -107,7 +134,7 @@ export function DifferentialExpressionTable({
         },
       }),
     ],
-    [onGeneClick]
+    [onGeneClick, clusterNameMap]
   );
 
   const table = useReactTable({
