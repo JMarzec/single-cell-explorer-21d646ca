@@ -1,7 +1,7 @@
 import { SingleCellDataset } from "@/types/singleCell";
 
 const REMOTE_DATASET_URL =
-  "https://github.com/JMarzec/single-cell-explorer-21d646ca/raw/refs/heads/main/public/heart_organoid_S1_3_annot.json";
+  "https://raw.githubusercontent.com/JMarzec/single-cell-explorer-21d646ca/main/public/heart_organoid_S1_3_annot.json";
 
 export function normalizeDataset(data: unknown): SingleCellDataset {
   const obj = data as Record<string, unknown>;
