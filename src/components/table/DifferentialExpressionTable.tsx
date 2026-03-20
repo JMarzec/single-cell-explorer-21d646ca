@@ -81,6 +81,19 @@ export function DifferentialExpressionTable({
           </span>
         ),
       }),
+      columnHelper.display({
+        id: "cellType",
+        header: "Cell Type",
+        cell: (info) => {
+          const clusterVal = info.row.original.cluster;
+          const name = clusterNameMap.get(clusterVal);
+          return (
+            <span className="text-xs text-muted-foreground">
+              {name || "—"}
+            </span>
+          );
+        },
+      }),
       columnHelper.accessor("logFC", {
         header: ({ column }) => (
           <button

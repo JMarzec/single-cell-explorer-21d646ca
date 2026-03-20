@@ -563,6 +563,7 @@ const Index = () => {
             <div data-tour="de-table">
               <DifferentialExpressionTable
                 data={dataset.differentialExpression}
+                clusters={dataset.clusters}
                 onGeneClick={handleGeneClick}
               />
             </div>
