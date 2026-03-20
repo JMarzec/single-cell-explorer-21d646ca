@@ -24,12 +24,25 @@ const columnHelper = createColumnHelper<DifferentialExpression>();
 
 export function DifferentialExpressionTable({
   data,
+  clusters,
   onGeneClick,
 }: DifferentialExpressionTableProps) {
   const [sorting, setSorting] = useState<SortingState>([
     { id: "logFC", desc: true },
   ]);
   const [globalFilter, setGlobalFilter] = useState("");
+
+  const clusterNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (clusters) {
+      clusters.forEach((c) => {
+        map.set(`Cl_${c.id}`, c.name);
+        map.set(String(c.id), c.name);
+        map.set(c.name, c.name);
+      });
+    }
+    return map;
+  }, [clusters]);
 
   const columns = useMemo(
     () => [
