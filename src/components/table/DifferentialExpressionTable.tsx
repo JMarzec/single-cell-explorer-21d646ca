@@ -9,13 +9,14 @@ import {
   createColumnHelper,
   SortingState,
 } from "@tanstack/react-table";
-import { DifferentialExpression } from "@/types/singleCell";
+import { DifferentialExpression, ClusterInfo } from "@/types/singleCell";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, ArrowUpDown, Search } from "lucide-react";
 
 interface DifferentialExpressionTableProps {
   data: DifferentialExpression[];
+  clusters?: ClusterInfo[];
   onGeneClick?: (gene: string) => void;
 }
 
