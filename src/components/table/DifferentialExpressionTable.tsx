@@ -83,7 +83,21 @@ export function DifferentialExpressionTable({
       }),
       columnHelper.display({
         id: "cellType",
-        header: "Cell Type",
+        header: ({ column }) => (
+          <button
+            className="flex items-center gap-1 hover:text-primary transition-colors"
+            onClick={() => column.toggleSorting()}
+          >
+            Cell Type
+            <ArrowUpDown className="h-3 w-3" />
+          </button>
+        ),
+        sortingFn: (rowA, rowB) => {
+          const a = clusterNameMap.get(rowA.original.cluster) || "";
+          const b = clusterNameMap.get(rowB.original.cluster) || "";
+          return a.localeCompare(b);
+        },
+        enableSorting: true,
         cell: (info) => {
           const clusterVal = info.row.original.cluster;
           const name = clusterNameMap.get(clusterVal);
