@@ -81,8 +81,9 @@ export function DifferentialExpressionTable({
           </span>
         ),
       }),
-      columnHelper.display({
+      {
         id: "cellType",
+        accessorFn: (row) => clusterNameMap.get(row.cluster) || "",
         header: ({ column }) => (
           <button
             className="flex items-center gap-1 hover:text-primary transition-colors"
@@ -92,22 +93,12 @@ export function DifferentialExpressionTable({
             <ArrowUpDown className="h-3 w-3" />
           </button>
         ),
-        sortingFn: (rowA, rowB) => {
-          const a = clusterNameMap.get(rowA.original.cluster) || "";
-          const b = clusterNameMap.get(rowB.original.cluster) || "";
-          return a.localeCompare(b);
-        },
-        enableSorting: true,
-        cell: (info) => {
-          const clusterVal = info.row.original.cluster;
-          const name = clusterNameMap.get(clusterVal);
-          return (
-            <span className="text-xs text-muted-foreground">
-              {name || "—"}
-            </span>
-          );
-        },
-      }),
+        cell: (info) => (
+          <span className="text-xs text-muted-foreground">
+            {(info.getValue() as string) || "—"}
+          </span>
+        ),
+      },
       columnHelper.accessor("logFC", {
         header: ({ column }) => (
           <button
