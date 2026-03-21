@@ -251,11 +251,10 @@ export default function Showcase() {
 
       {/* ── Stats ── */}
       <section className="border-y border-border bg-card">
-        <div className="container mx-auto px-4 py-12 grid grid-cols-2 md:grid-cols-4 gap-8">
-          <StatCounter value="19,024" label="Cells in demo dataset" />
-          <StatCounter value="926" label="Genes available" />
+        <div className="container mx-auto px-4 py-12 grid grid-cols-3 gap-8">
+          <StatCounter value="19,024" label="Cells" />
+          <StatCounter value="5,000" label="Genes available" />
           <StatCounter value="9" label="Cell clusters" />
-          <StatCounter value="0 s" label="Server setup needed" />
         </div>
       </section>
 
