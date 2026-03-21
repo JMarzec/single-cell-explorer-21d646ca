@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { fetchRemoteDataset } from "@/lib/datasetLoader";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import accelBioLogo from "@/assets/AccelBio_logo.png";
 import {
@@ -157,6 +158,49 @@ function StatCounter({ value, label }: { value: string; label: string }) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Dynamic dataset stats                                              */
+/* ------------------------------------------------------------------ */
+function DatasetStats() {
+  const [stats, setStats] = useState<{ cells: string; genes: string; clusters: string } | null>(null);
+
+  useEffect(() => {
+    fetchRemoteDataset()
+      .then((ds) => {
+        setStats({
+          cells: ds.metadata.cellCount.toLocaleString(),
+          genes: ds.metadata.geneCount.toLocaleString(),
+          clusters: ds.metadata.clusterCount.toLocaleString(),
+        });
+      })
+      .catch(() => {
+        setStats({ cells: "—", genes: "—", clusters: "—" });
+      });
+  }, []);
+
+  if (!stats) {
+    return (
+      <section className="border-y border-border bg-card">
+        <div className="container mx-auto px-4 py-12 grid grid-cols-3 gap-8">
+          <StatCounter value="..." label="Cells" />
+          <StatCounter value="..." label="Genes available" />
+          <StatCounter value="..." label="Cell clusters" />
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="border-y border-border bg-card">
+      <div className="container mx-auto px-4 py-12 grid grid-cols-3 gap-8">
+        <StatCounter value={stats.cells} label="Cells" />
+        <StatCounter value={stats.genes} label="Genes available" />
+        <StatCounter value={stats.clusters} label="Cell clusters" />
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Main page                                                          */
 /* ------------------------------------------------------------------ */
 export default function Showcase() {
@@ -250,13 +294,7 @@ export default function Showcase() {
       </section>
 
       {/* ── Stats ── */}
-      <section className="border-y border-border bg-card">
-        <div className="container mx-auto px-4 py-12 grid grid-cols-3 gap-8">
-          <StatCounter value="19,024" label="Cells" />
-          <StatCounter value="5,000" label="Genes available" />
-          <StatCounter value="9" label="Cell clusters" />
-        </div>
-      </section>
+      <DatasetStats />
 
       {/* ── Features ── */}
       <section className="container mx-auto px-4 py-20 space-y-32">
