@@ -251,13 +251,7 @@ export default function Showcase() {
       </section>
 
       {/* ── Stats ── */}
-      <section className="border-y border-border bg-card">
-        <div className="container mx-auto px-4 py-12 grid grid-cols-3 gap-8">
-          <StatCounter value="19,024" label="Cells" />
-          <StatCounter value="5,000" label="Genes available" />
-          <StatCounter value="9" label="Cell clusters" />
-        </div>
-      </section>
+      <DatasetStats />
 
       {/* ── Features ── */}
       <section className="container mx-auto px-4 py-20 space-y-32">
