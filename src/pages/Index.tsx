@@ -307,9 +307,15 @@ const Index = () => {
 
   if (isLoadingRemote) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-6">
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-muted border-t-primary" />
-        <p className="text-muted-foreground text-sm">Loading heart organoid dataset…</p>
+        <div className="text-center space-y-2">
+          <p className="text-foreground font-medium">Loading dataset…</p>
+          <p className="text-muted-foreground text-sm">Fetching heart organoid single-cell data</p>
+        </div>
+        <div className="w-64 h-1.5 bg-muted rounded-full overflow-hidden">
+          <div className="h-full bg-primary rounded-full animate-[indeterminate_1.5s_ease-in-out_infinite]" />
+        </div>
       </div>
     );
   }
