@@ -1,11 +1,26 @@
 import { SingleCellDataset } from "@/types/singleCell";
+import { decode } from "@msgpack/msgpack";
 
+/**
+ * Remote URLs for the split compressed dataset files.
+ * These are served from GitHub via media.githubusercontent.com for CORS + LFS support.
+ * Update these URLs if you move the files to a different host.
+ */
+const REMOTE_CORE_URL =
+  "https://media.githubusercontent.com/media/JMarzec/single-cell-explorer-21d646ca/main/public/dataset_core.json";
+const REMOTE_EXPR_URL =
+  "https://media.githubusercontent.com/media/JMarzec/single-cell-explorer-21d646ca/main/public/dataset_expression.msgpack";
+
+/** Fallback: original monolithic JSON */
 const REMOTE_DATASET_URL =
   "https://media.githubusercontent.com/media/JMarzec/single-cell-explorer-21d646ca/main/public/heart_organoid_S1_3_annot.json";
 
+/** Local paths (served from public/ in dev and production) */
+const LOCAL_CORE_URL = "/dataset_core.json";
+const LOCAL_EXPR_URL = "/dataset_expression.msgpack";
+
 export interface LoadProgress {
   phase: "downloading" | "parsing" | "done" | "error";
-  /** 0-100 for downloading phase */
   percent: number;
   message: string;
 }
@@ -77,28 +92,22 @@ export function normalizeDataset(data: unknown): SingleCellDataset {
   };
 }
 
-/**
- * Stream-fetch + chunked JSON parse for large datasets.
- * Instead of response.text() (which allocates the entire payload as one string),
- * we read the body stream in chunks and feed them into a manual reassembly buffer,
- * then parse once complete. This reduces peak memory by ~50% vs text() + parse().
- *
- * For progress reporting we use the Content-Length header when available.
- */
+// ---------------------------------------------------------------------------
+// Caching
+// ---------------------------------------------------------------------------
 let cachedPromise: Promise<SingleCellDataset> | null = null;
 let cachedResult: SingleCellDataset | null = null;
 
 export function fetchRemoteDataset(
   onProgress?: (p: LoadProgress) => void
 ): Promise<SingleCellDataset> {
-  // Return already-parsed result immediately
   if (cachedResult) {
     onProgress?.({ phase: "done", percent: 100, message: "Loaded from cache" });
     return Promise.resolve(cachedResult);
   }
 
   if (!cachedPromise) {
-    cachedPromise = streamFetchAndParse(onProgress);
+    cachedPromise = loadDataset(onProgress);
     cachedPromise.catch(() => {
       cachedPromise = null;
     });
@@ -106,6 +115,156 @@ export function fetchRemoteDataset(
   return cachedPromise;
 }
 
+// ---------------------------------------------------------------------------
+// Main loader: tries split files first, falls back to monolithic JSON
+// ---------------------------------------------------------------------------
+async function loadDataset(
+  onProgress?: (p: LoadProgress) => void
+): Promise<SingleCellDataset> {
+  // Try loading split compressed files first
+  try {
+    const dataset = await loadSplitDataset(onProgress);
+    cachedResult = dataset;
+    onProgress?.({ phase: "done", percent: 100, message: "Dataset ready" });
+    return dataset;
+  } catch (splitError) {
+    console.warn("Split dataset not available, falling back to monolithic JSON:", splitError);
+  }
+
+  // Fallback: stream the original 1GB JSON
+  const dataset = await streamFetchAndParse(onProgress);
+  cachedResult = dataset;
+  onProgress?.({ phase: "done", percent: 100, message: "Dataset ready" });
+  return dataset;
+}
+
+// ---------------------------------------------------------------------------
+// Split loader: core JSON + expression MessagePack
+// ---------------------------------------------------------------------------
+async function loadSplitDataset(
+  onProgress?: (p: LoadProgress) => void
+): Promise<SingleCellDataset> {
+  onProgress?.({ phase: "downloading", percent: 0, message: "Loading core data…" });
+
+  // 1. Fetch core JSON (small, fast)
+  const coreData = await fetchJsonWithFallback(REMOTE_CORE_URL, LOCAL_CORE_URL);
+
+  const dataset = normalizeDataset(coreData);
+
+  onProgress?.({ phase: "downloading", percent: 5, message: "Core data loaded. Downloading expression matrix…" });
+
+  // 2. Stream-fetch the expression MessagePack
+  const exprBytes = await streamFetchBytes(
+    REMOTE_EXPR_URL,
+    LOCAL_EXPR_URL,
+    (pct, msg) => {
+      onProgress?.({ phase: "downloading", percent: 5 + Math.round(pct * 0.9), message: msg });
+    }
+  );
+
+  onProgress?.({ phase: "parsing", percent: 96, message: "Decoding expression matrix…" });
+
+  // 3. Decode MessagePack -> sparse -> dense
+  const sparseExpression = decode(exprBytes) as Record<string, [number, number][]>;
+
+  onProgress?.({ phase: "parsing", percent: 98, message: "Reconstructing expression data…" });
+
+  const cellIds = dataset.cells.map((c) => c.id);
+  dataset.expression = sparseToDense(sparseExpression, cellIds);
+  dataset.metadata.geneCount = Object.keys(dataset.expression).length;
+
+  // Update genes list from expression keys if core didn't have it
+  if (dataset.genes.length === 0) {
+    dataset.genes = Object.keys(dataset.expression);
+  }
+
+  return dataset;
+}
+
+/** Convert sparse indexed format back to dense: gene -> {cellId: value} */
+function sparseToDense(
+  sparse: Record<string, [number, number][]>,
+  cellIds: string[]
+): Record<string, Record<string, number>> {
+  const result: Record<string, Record<string, number>> = {};
+  for (const [gene, entries] of Object.entries(sparse)) {
+    const cellMap: Record<string, number> = {};
+    for (const [cellIdx, value] of entries) {
+      if (cellIdx < cellIds.length) {
+        cellMap[cellIds[cellIdx]] = value;
+      }
+    }
+    result[gene] = cellMap;
+  }
+  return result;
+}
+
+/** Try remote URL first, fall back to local */
+async function fetchJsonWithFallback(remoteUrl: string, localUrl: string): Promise<unknown> {
+  try {
+    const resp = await fetch(remoteUrl);
+    if (resp.ok) return await resp.json();
+  } catch { /* fall through */ }
+
+  const resp = await fetch(localUrl);
+  if (!resp.ok) throw new Error(`Failed to fetch from both remote and local: ${localUrl}`);
+  return resp.json();
+}
+
+/** Stream-fetch binary data with progress, trying remote then local */
+async function streamFetchBytes(
+  remoteUrl: string,
+  localUrl: string,
+  onProgress: (pct: number, msg: string) => void
+): Promise<Uint8Array> {
+  let response: Response | null = null;
+
+  try {
+    const resp = await fetch(remoteUrl);
+    if (resp.ok) response = resp;
+  } catch { /* fall through */ }
+
+  if (!response) {
+    const resp = await fetch(localUrl);
+    if (!resp.ok) throw new Error(`Failed to fetch expression data`);
+    response = resp;
+  }
+
+  const contentLength = Number(response.headers.get("content-length") || 0);
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("ReadableStream not supported");
+
+  const chunks: Uint8Array[] = [];
+  let receivedBytes = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    receivedBytes += value.length;
+
+    const pct = contentLength > 0
+      ? Math.min(99, Math.round((receivedBytes / contentLength) * 100))
+      : 50;
+    const mb = (receivedBytes / 1e6).toFixed(0);
+    const totalMb = contentLength > 0 ? ` / ${(contentLength / 1e6).toFixed(0)}` : "";
+    onProgress(pct, `Downloading expression… ${mb}${totalMb} MB`);
+  }
+
+  const fullBuffer = new Uint8Array(receivedBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    fullBuffer.set(chunk, offset);
+    offset += chunk.length;
+  }
+  chunks.length = 0;
+
+  return fullBuffer;
+}
+
+// ---------------------------------------------------------------------------
+// Fallback: stream-fetch the monolithic 1GB JSON
+// ---------------------------------------------------------------------------
 async function streamFetchAndParse(
   onProgress?: (p: LoadProgress) => void
 ): Promise<SingleCellDataset> {
@@ -123,11 +282,9 @@ async function streamFetchAndParse(
     throw new Error("ReadableStream not supported in this browser");
   }
 
-  // Collect chunks without creating one giant string
   const chunks: Uint8Array[] = [];
   let receivedBytes = 0;
 
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -156,16 +313,12 @@ async function streamFetchAndParse(
 
   onProgress?.({ phase: "parsing", percent: 100, message: "Parsing JSON…" });
 
-  // Concatenate chunks into a single Uint8Array, then decode once
-  // This is more memory-efficient than string concatenation
   const fullBuffer = new Uint8Array(receivedBytes);
   let offset = 0;
   for (const chunk of chunks) {
     fullBuffer.set(chunk, offset);
     offset += chunk.length;
   }
-
-  // Free chunk references to reduce peak memory
   chunks.length = 0;
 
   const decoder = new TextDecoder();
@@ -181,10 +334,5 @@ async function streamFetchAndParse(
   }
 
   onProgress?.({ phase: "parsing", percent: 100, message: "Building dataset…" });
-
-  const dataset = normalizeDataset(data);
-  cachedResult = dataset;
-
-  onProgress?.({ phase: "done", percent: 100, message: "Dataset ready" });
-  return dataset;
+  return normalizeDataset(data);
 }
