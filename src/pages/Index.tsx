@@ -15,7 +15,7 @@ import { PseudotimeHeatmap } from "@/components/analysis/PseudotimeHeatmap";
 import { calculatePseudotime } from "@/components/analysis/TrajectoryAnalysis";
 
 import { generateDemoDataset } from "@/data/demoData";
-import { fetchRemoteDataset } from "@/lib/datasetLoader";
+import { fetchRemoteDataset, LoadProgress } from "@/lib/datasetLoader";
 import { getExpressionData, getMultiGeneExpression, getAveragedExpression, getAnnotationValues, getAnnotationColorMap, calculatePercentile } from "@/lib/expressionUtils";
 import { getPaletteGradientCSS } from "@/lib/colorPalettes";
 import { VisualizationSettings, SingleCellDataset, CellFilterState as CellFilterType, Cell, ClusterInfo, ColorPalette } from "@/types/singleCell";
@@ -24,6 +24,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ProductTour, TourStep } from "@/components/tour/ProductTour";
+import { Progress } from "@/components/ui/progress";
 
 const tourSteps: TourStep[] = [
   {
@@ -107,19 +108,23 @@ const defaultCellFilter: CellFilterType = {
 const Index = () => {
   const [dataset, setDataset] = useState<SingleCellDataset>(defaultDataset);
   const [isLoadingRemote, setIsLoadingRemote] = useState(true);
+  const [loadProgress, setLoadProgress] = useState<LoadProgress>({ phase: "downloading", percent: 0, message: "Initialising…" });
+  const [remoteError, setRemoteError] = useState<string | null>(null);
   const [tourOpen, setTourOpen] = useState(false);
   const originalDatasetRef = useRef<SingleCellDataset>(defaultDataset);
 
-  // Fetch remote dataset on mount
+  // Fetch remote dataset on mount with progress tracking
   useEffect(() => {
-    fetchRemoteDataset()
+    fetchRemoteDataset((p) => setLoadProgress(p))
       .then((remoteDataset) => {
-        console.log("Remote dataset loaded:", remoteDataset.metadata.name, remoteDataset.cells.length, "cells");
+        console.log("Remote dataset loaded:", remoteDataset.metadata.name, remoteDataset.cells.length, "cells,", remoteDataset.genes.length, "genes");
         setDataset(remoteDataset);
         originalDatasetRef.current = remoteDataset;
       })
       .catch((err) => {
-        console.warn("Failed to load remote dataset, using demo data:", err);
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error("Failed to load remote dataset:", msg);
+        setRemoteError(msg);
       })
       .finally(() => setIsLoadingRemote(false));
   }, []);
@@ -306,15 +311,20 @@ const Index = () => {
   }, []);
 
   if (isLoadingRemote) {
+    const isDownloading = loadProgress.phase === "downloading";
+    const showPercent = isDownloading && loadProgress.percent > 0;
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-6">
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-muted border-t-primary" />
         <div className="text-center space-y-2">
           <p className="text-foreground font-medium">Loading dataset…</p>
-          <p className="text-muted-foreground text-sm">Fetching heart organoid single-cell data</p>
+          <p className="text-muted-foreground text-sm">{loadProgress.message}</p>
         </div>
-        <div className="w-64 h-1.5 bg-muted rounded-full overflow-hidden">
-          <div className="h-full bg-primary rounded-full animate-[indeterminate_1.5s_ease-in-out_infinite]" />
+        <div className="w-64">
+          <Progress value={showPercent ? loadProgress.percent : undefined} className="h-2" />
+          {showPercent && (
+            <p className="text-xs text-muted-foreground text-center mt-1">{loadProgress.percent}%</p>
+          )}
         </div>
       </div>
     );
@@ -322,6 +332,16 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {remoteError && (
+        <div className="bg-destructive/10 border-b border-destructive/30 px-4 py-3 text-center">
+          <p className="text-sm text-destructive font-medium">
+            ⚠ Failed to load remote dataset: {remoteError}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Showing demo data instead. The remote file may be too large for your browser's memory.
+          </p>
+        </div>
+      )}
       <Header metadata={dataset.metadata} onStartTour={() => setTourOpen(true)} />
       <ProductTour steps={tourSteps} isOpen={tourOpen} onClose={() => setTourOpen(false)} />
 
