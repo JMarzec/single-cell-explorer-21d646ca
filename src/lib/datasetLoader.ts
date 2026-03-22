@@ -80,7 +80,15 @@ export function fetchRemoteDataset(): Promise<SingleCellDataset> {
         cachedPromise = null;
         throw new Error(`Failed to fetch dataset: ${response.status}`);
       }
-      const data = await response.json();
+      // Use .text() then JSON.parse for large files — .json() can fail on big payloads
+      const text = await response.text();
+      let data: unknown;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        cachedPromise = null;
+        throw new Error(`Failed to parse dataset JSON (${(text.length / 1e6).toFixed(0)}MB): ${e}`);
+      }
       return normalizeDataset(data);
     })();
   }
