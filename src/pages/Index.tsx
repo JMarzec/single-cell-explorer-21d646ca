@@ -323,6 +323,11 @@ const Index = () => {
     );
   }
 
+  {/* Show error banner if remote dataset failed to load */}
+  if (remoteError) {
+    console.warn("Displaying error banner — remote dataset failed:", remoteError);
+  }
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header metadata={dataset.metadata} onStartTour={() => setTourOpen(true)} />
