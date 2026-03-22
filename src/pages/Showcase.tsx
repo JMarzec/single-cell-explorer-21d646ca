@@ -194,7 +194,7 @@ function DatasetStats() {
       <div className="container mx-auto px-4 py-12 grid grid-cols-3 gap-8">
         <StatCounter value={stats.cells} label="Cells" />
         <StatCounter value={stats.genes} label="Genes available" />
-        <StatCounter value={stats.clusters} label="Cell clusters" />
+        <StatCounter value={stats.clusters} label="Cell types" />
       </div>
     </section>
   );
