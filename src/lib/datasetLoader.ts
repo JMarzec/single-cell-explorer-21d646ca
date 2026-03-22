@@ -7,7 +7,7 @@ import { decode } from "@msgpack/msgpack";
  * Update these URLs if you move the files to a different host.
  */
 const REMOTE_CORE_URL =
-  "https://media.githubusercontent.com/media/JMarzec/single-cell-explorer-21d646ca/main/public/dataset_core.json";
+  "https://raw.githubusercontent.com/JMarzec/single-cell-explorer-21d646ca/main/public/dataset_core.json";
 const REMOTE_EXPR_URL =
   "https://media.githubusercontent.com/media/JMarzec/single-cell-explorer-21d646ca/main/public/dataset_expression.msgpack";
 
