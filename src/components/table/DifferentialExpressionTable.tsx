@@ -4,15 +4,13 @@ import {
   getCoreRowModel,
   getSortedRowModel,
   getFilteredRowModel,
-  getPaginationRowModel,
   flexRender,
   createColumnHelper,
   SortingState,
 } from "@tanstack/react-table";
 import { DifferentialExpression, ClusterInfo } from "@/types/singleCell";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, ArrowUpDown, Search } from "lucide-react";
+import { ArrowUpDown, Search } from "lucide-react";
 
 interface DifferentialExpressionTableProps {
   data: DifferentialExpression[];
@@ -83,8 +81,8 @@ export function DifferentialExpressionTable({
       }),
       {
         id: "cellType",
-        accessorFn: (row) => clusterNameMap.get(row.cluster) || "",
-        header: ({ column }) => (
+        accessorFn: (row: DifferentialExpression) => clusterNameMap.get(row.cluster) || "",
+        header: ({ column }: any) => (
           <button
             className="flex items-center gap-1 hover:text-primary transition-colors"
             onClick={() => column.toggleSorting()}
@@ -93,7 +91,7 @@ export function DifferentialExpressionTable({
             <ArrowUpDown className="h-3 w-3" />
           </button>
         ),
-        cell: (info) => (
+        cell: (info: any) => (
           <span className="text-xs text-muted-foreground">
             {(info.getValue() as string) || "—"}
           </span>
@@ -165,17 +163,11 @@ export function DifferentialExpressionTable({
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    initialState: {
-      pagination: {
-        pageSize: 10,
-      },
-    },
   });
 
   return (
     <div className="bg-card border border-border rounded-lg overflow-hidden max-h-[600px] flex flex-col">
-      <div className="p-4 border-b border-border">
+      <div className="p-4 border-b border-border shrink-0">
         <div className="flex items-center justify-between gap-4">
           <h3 className="text-sm font-semibold text-foreground">
             Differential Expression
@@ -194,9 +186,9 @@ export function DifferentialExpressionTable({
 
       <div className="overflow-auto flex-1">
         <table className="w-full">
-          <thead>
+          <thead className="sticky top-0 z-10 bg-muted">
             {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id} className="border-b border-border bg-muted/50">
+              <tr key={headerGroup.id} className="border-b border-border">
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
@@ -233,38 +225,10 @@ export function DifferentialExpressionTable({
         </table>
       </div>
 
-      <div className="p-4 border-t border-border flex items-center justify-between">
-        <div className="text-xs text-muted-foreground">
-          Showing {table.getState().pagination.pageIndex * 10 + 1} to{" "}
-          {Math.min(
-            (table.getState().pagination.pageIndex + 1) * 10,
-            table.getFilteredRowModel().rows.length
-          )}{" "}
-          of {table.getFilteredRowModel().rows.length.toLocaleString()} entries
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            Page {table.getState().pagination.pageIndex + 1} of{" "}
-            {table.getPageCount()}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
+      <div className="p-3 border-t border-border shrink-0">
+        <span className="text-xs text-muted-foreground">
+          {table.getFilteredRowModel().rows.length.toLocaleString()} entries
+        </span>
       </div>
     </div>
   );
