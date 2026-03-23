@@ -270,11 +270,3 @@ export function DifferentialExpressionTable({
     </div>
   );
 }
-      <div className="p-3 border-t border-border shrink-0">
-        <span className="text-xs text-muted-foreground">
-          {table.getFilteredRowModel().rows.length.toLocaleString()} entries
-        </span>
-      </div>
-    </div>
-  );
-}
