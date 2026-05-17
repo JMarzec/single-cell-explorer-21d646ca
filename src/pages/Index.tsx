@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { Helmet } from "react-helmet-async";
 import { Header } from "@/components/layout/Header";
 import { ScatterPlot } from "@/components/scatter/ScatterPlot";
 import { CellFilter } from "@/components/controls/CellFilter";
@@ -346,14 +347,23 @@ const Index = () => {
       <ProductTour steps={tourSteps} isOpen={tourOpen} onClose={() => setTourOpen(false)} />
 
       <main className="flex-1 container mx-auto px-4 py-6">
-        {/* Controls row */}
+        <Helmet>
+          <title>Single-Cell Explorer Dashboard — Interactive scRNA-seq</title>
+          <meta name="description" content="Explore single-cell RNA-seq datasets interactively: t-SNE/UMAP embeddings, gene expression overlays, violin and dot plots, and differential expression." />
+          <link rel="canonical" href="https://accelbio-single-cell-explorer.lovable.app/" />
+          <meta property="og:title" content="Single-Cell Explorer Dashboard" />
+          <meta property="og:description" content="Interactive browser-based exploration of single-cell datasets — embeddings, gene search, and differential expression." />
+          <meta property="og:url" content="https://accelbio-single-cell-explorer.lovable.app/" />
+        </Helmet>
+        <h1 className="sr-only">Single-Cell Explorer Dashboard</h1>
+
 
         {/* Dual Plot Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {/* Left Plot - Metadata Annotation */}
           <div className="space-y-4" data-tour="metadata-plot">
             <div className="flex items-center justify-between p-3 bg-card border border-border rounded-lg">
-              <h3 className="font-semibold text-foreground">Metadata Annotation</h3>
+              <h2 className="font-semibold text-foreground text-base">Metadata Annotation</h2>
               <Select value={selectedAnnotation} onValueChange={setSelectedAnnotation}>
                 <SelectTrigger className="w-40">
                   <SelectValue placeholder="Select annotation" />
@@ -423,12 +433,12 @@ const Index = () => {
           {/* Right Plot - Gene Expression */}
           <div className="space-y-4" data-tour="expression-plot">
             <div className="p-3 bg-card border border-border rounded-lg">
-              <h3 className="font-semibold text-foreground">
+              <h2 className="font-semibold text-foreground text-base">
                 Gene Expression
                 {effectiveGeneLabel && (
                   <span className="ml-2 text-primary font-mono text-sm">({effectiveGeneLabel})</span>
                 )}
-              </h3>
+              </h2>
             </div>
             
             <div className="h-[450px]">
