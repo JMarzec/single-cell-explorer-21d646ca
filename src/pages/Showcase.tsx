@@ -287,7 +287,10 @@ export default function Showcase() {
                 src="/showcase/dashboard-hero.png"
                 alt="Single-Cell Explorer full dashboard showing scatter plots, cell type legend, and analysis controls"
                 className="w-full h-auto"
+                width="1600"
+                height="900"
                 loading="eager"
+                fetchPriority="high"
               />
             </div>
           </div>
