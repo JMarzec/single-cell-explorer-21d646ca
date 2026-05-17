@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import { fetchRemoteDataset } from "@/lib/datasetLoader";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
@@ -206,11 +207,19 @@ function DatasetStats() {
 export default function Showcase() {
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <Helmet>
+        <title>Single-Cell Explorer — Features & Showcase</title>
+        <meta name="description" content="Discover Single-Cell Explorer features: interactive t-SNE and UMAP visualization, gene expression search, violin and dot plots, and differential expression analysis." />
+        <link rel="canonical" href="https://accelbio-single-cell-explorer.lovable.app/showcase" />
+        <meta property="og:title" content="Explore Single-Cell Data Interactively" />
+        <meta property="og:description" content="Interactive t-SNE/UMAP visualization, gene expression search, violin & dot plots, and differential expression — all in the browser." />
+        <meta property="og:url" content="https://accelbio-single-cell-explorer.lovable.app/showcase" />
+      </Helmet>
       {/* ── Navigation ── */}
       <nav className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-md">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src={accelBioLogo} alt="AccelBio" className="h-10 w-auto" />
+            <img src={accelBioLogo} alt="AccelBio company logo" className="h-10 w-auto" />
             <span className="font-semibold text-foreground">
               Single-Cell Explorer
             </span>

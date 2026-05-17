@@ -1,0 +1,8 @@
+# Single-Cell Explorer
+
+> Browser-based interactive portal for exploring and visualising single-cell RNA-seq data — t-SNE/UMAP embeddings, gene expression overlays, violin/dot plots, and differential expression.
+
+## Pages
+
+- [Dashboard](/): Interactive scatter plots, gene search, clustering, and differential expression analysis on single-cell datasets.
+- [Showcase](/showcase): Feature walkthrough highlighting visualization, gene expression search, plots, and DE analysis.

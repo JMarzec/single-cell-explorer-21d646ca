@@ -118,6 +118,7 @@ export function Header({ metadata, onStartTour }: HeaderProps) {
             <button
               onClick={() => setGuideOpen(true)}
               className="p-2 rounded-lg hover:bg-secondary transition-colors"
+              aria-label="Open user guide"
             >
               <Info className="h-5 w-5 text-muted-foreground" />
             </button>

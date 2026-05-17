@@ -12,3 +12,5 @@ Allow: /
 
 User-agent: *
 Allow: /
+
+Sitemap: https://accelbio-single-cell-explorer.lovable.app/sitemap.xml

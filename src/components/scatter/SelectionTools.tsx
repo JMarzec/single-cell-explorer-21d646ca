@@ -28,6 +28,7 @@ export function SelectionTools({
               size="sm"
               className="h-8 w-8 p-0"
               onClick={() => onModeChange("none")}
+              aria-label="Pan and Zoom"
             >
               <MousePointer className="h-4 w-4" />
             </Button>
@@ -44,6 +45,7 @@ export function SelectionTools({
               size="sm"
               className="h-8 w-8 p-0"
               onClick={() => onModeChange("lasso")}
+              aria-label="Lasso Selection"
             >
               <Lasso className="h-4 w-4" />
             </Button>
@@ -60,6 +62,7 @@ export function SelectionTools({
               size="sm"
               className="h-8 w-8 p-0"
               onClick={() => onModeChange("rectangle")}
+              aria-label="Rectangle Selection"
             >
               <Square className="h-4 w-4" />
             </Button>
@@ -82,6 +85,7 @@ export function SelectionTools({
                   size="sm"
                   className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                   onClick={onClearSelection}
+                  aria-label="Clear Selection"
                 >
                   <X className="h-4 w-4" />
                 </Button>
