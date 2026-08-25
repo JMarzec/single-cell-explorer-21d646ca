@@ -50,7 +50,7 @@ export class SparseExpressionMatrix implements ExpressionMatrix {
 }
 
 /**
- * Wrap a plain `gene -> { cellId: value }` object (demo / uploaded datasets)
+ * Wrap a plain `gene -> { cellId: value }` object (demo datasets)
  * in the same interface.
  */
 export function matrixFromRecord(

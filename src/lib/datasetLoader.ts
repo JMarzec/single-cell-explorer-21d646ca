@@ -47,9 +47,9 @@ export function normalizeDataset(data: unknown): SingleCellDataset {
 
   const rawMeta = (obj.metadata as Record<string, unknown>) || {};
   const metadata = {
-    name: String(rawMeta.name || "Uploaded Dataset"),
+    name: String(rawMeta.name || "Single-Cell Dataset"),
     description: String(
-      rawMeta.description || "User-uploaded single-cell dataset"
+      rawMeta.description || "Single-cell dataset"
     ),
     cellCount: cells.length,
     geneCount: ((obj.genes as string[]) || []).length,
