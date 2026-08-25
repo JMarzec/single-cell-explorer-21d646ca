@@ -562,7 +562,7 @@ const Index = () => {
 
           {/* Right Plot - Gene Expression */}
           <div className="flex flex-col gap-4 h-full" data-tour="expression-plot">
-            <div className="flex items-center justify-between p-3 min-h-[66px] bg-card border border-border rounded-lg">
+            <div className="p-3 min-h-[66px] bg-card border border-border rounded-lg">
               <h2 className="font-semibold text-foreground text-base">
                 Gene Expression
                 {effectiveGeneLabel && (
