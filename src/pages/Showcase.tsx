@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import { fetchRemoteDataset } from "@/lib/datasetLoader";
+import { fetchCoreDataset } from "@/lib/datasetLoader";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import accelBioLogo from "@/assets/AccelBio_logo.png";
 import {
@@ -165,7 +165,7 @@ function DatasetStats() {
   const [stats, setStats] = useState<{ cells: string; genes: string; clusters: string } | null>(null);
 
   useEffect(() => {
-    fetchRemoteDataset()
+    fetchCoreDataset()
       .then((ds) => {
         setStats({
           cells: ds.metadata.cellCount.toLocaleString(),
