@@ -7,6 +7,8 @@ interface CellTooltipProps {
   clusterName?: string;
   expressionValue?: number;
   geneName?: string;
+  /** Gene is absent from the loaded expression matrix */
+  expressionNotDetected?: boolean;
 }
 
 export function CellTooltip({
@@ -15,6 +17,7 @@ export function CellTooltip({
   clusterName,
   expressionValue,
   geneName,
+  expressionNotDetected = false,
 }: CellTooltipProps) {
   if (!cell) return null;
 
