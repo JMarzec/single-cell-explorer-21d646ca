@@ -559,7 +559,7 @@ const Index = () => {
           </div>
 
           {/* Right Plot - Gene Expression */}
-          <div className="space-y-4" data-tour="expression-plot">
+          <div className="flex flex-col space-y-4 h-full" data-tour="expression-plot">
             <div className="p-3 bg-card border border-border rounded-lg">
               <h2 className="font-semibold text-foreground text-base">
                 Gene Expression
@@ -579,7 +579,7 @@ const Index = () => {
               )}
             </div>
             
-            <div className="h-[450px]">
+            <div className="flex-1 min-h-[400px]">
               <ScatterPlot
                 cells={dataset.cells}
                 expressionData={expressionData}
