@@ -668,7 +668,17 @@ const Index = () => {
 
         {/* Analysis Tabs */}
         <div className="space-y-6 mt-6" data-tour="analysis-tabs">
+            {undetectedGenes.length > 0 && (
+              <div className="bg-muted border border-border rounded-lg px-4 py-2" role="status">
+                <p className="text-xs text-muted-foreground">
+                  Not detected in this dataset:{" "}
+                  <span className="font-mono text-foreground">{undetectedGenes.join(", ")}</span>. Plots
+                  below show zero expression for {undetectedGenes.length > 1 ? "these genes" : "this gene"}.
+                </p>
+              </div>
+            )}
             <Tabs defaultValue="violin" className="w-full">
+
               <TabsList>
                 <TabsTrigger value="violin" disabled={!effectiveGeneLabel}>
                   Violin Plot
