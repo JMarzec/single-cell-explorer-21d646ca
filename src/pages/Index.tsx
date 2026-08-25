@@ -110,25 +110,49 @@ const Index = () => {
   const [dataset, setDataset] = useState<SingleCellDataset>(defaultDataset);
   const [isLoadingRemote, setIsLoadingRemote] = useState(true);
   const [loadProgress, setLoadProgress] = useState<LoadProgress>({ phase: "downloading", percent: 0, message: "Initialising…" });
+  const [exprProgress, setExprProgress] = useState<LoadProgress | null>(null);
+  const [exprReady, setExprReady] = useState(false);
   const [remoteError, setRemoteError] = useState<string | null>(null);
   const [tourOpen, setTourOpen] = useState(false);
   const originalDatasetRef = useRef<SingleCellDataset>(defaultDataset);
 
-  // Fetch remote dataset on mount with progress tracking
+  // Load the small core dataset first so the dashboard renders quickly,
+  // then stream the expression matrix in the background.
   useEffect(() => {
-    fetchRemoteDataset((p) => setLoadProgress(p))
-      .then((remoteDataset) => {
-        console.log("Remote dataset loaded:", remoteDataset.metadata.name, remoteDataset.cells.length, "cells,", remoteDataset.genes.length, "genes");
-        setDataset(remoteDataset);
-        originalDatasetRef.current = remoteDataset;
+    let cancelled = false;
+
+    fetchCoreDataset((p) => setLoadProgress(p))
+      .then((core) => {
+        if (cancelled) return;
+        setDataset(core);
+        originalDatasetRef.current = core;
+        setIsLoadingRemote(false);
+        setExprProgress({ phase: "downloading", percent: 0, message: "Downloading expression matrix…" });
+
+        return fetchExpressionMatrix(core.cells.map((c) => c.id), (p) => {
+          if (!cancelled) setExprProgress(p);
+        }).then((expression) => {
+          if (cancelled) return;
+          setDataset((prev) => ({ ...prev, expression }));
+          originalDatasetRef.current = { ...originalDatasetRef.current, expression };
+          setExprReady(true);
+          setExprProgress(null);
+        });
       })
       .catch((err) => {
+        if (cancelled) return;
         const msg = err instanceof Error ? err.message : String(err);
         console.error("Failed to load remote dataset:", msg);
         setRemoteError(msg);
-      })
-      .finally(() => setIsLoadingRemote(false));
+        setExprProgress(null);
+        setIsLoadingRemote(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
 
   // Selected cells from lasso/rectangle selection
   const [selectedCells, setSelectedCells] = useState<Cell[]>([]);
