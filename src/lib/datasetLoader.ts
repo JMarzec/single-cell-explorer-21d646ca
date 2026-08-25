@@ -124,10 +124,12 @@ export function fetchCoreDataset(
 /**
  * Fetch and decode the expression matrix. Streams the packed file and stores
  * values in typed arrays, so peak memory stays close to the packed size.
+ * Pass a signal to allow the user to cancel a long download.
  */
 export function fetchExpressionMatrix(
   cellIds: string[],
-  onProgress?: (p: LoadProgress) => void
+  onProgress?: (p: LoadProgress) => void,
+  signal?: AbortSignal
 ): Promise<ExpressionMatrix> {
   if (exprResult) {
     onProgress?.({ phase: "done", percent: 100, message: "Loaded from cache" });
@@ -135,12 +137,17 @@ export function fetchExpressionMatrix(
   }
 
   if (!exprPromise) {
-    exprPromise = loadExpressionMatrix(cellIds, onProgress);
+    exprPromise = loadExpressionMatrix(cellIds, onProgress, signal);
     exprPromise.catch(() => {
       exprPromise = null;
     });
   }
   return exprPromise;
+}
+
+/** True when the expression matrix has already been decoded. */
+export function isExpressionMatrixLoaded(): boolean {
+  return exprResult !== null;
 }
 
 /** Convenience loader: core data plus the expression matrix. */
@@ -163,11 +170,13 @@ async function loadCoreDataset(
   onProgress?: (p: LoadProgress) => void
 ): Promise<SingleCellDataset> {
   onProgress?.({ phase: "downloading", percent: 0, message: "Loading core data…" });
+  const endPhase = startPhase("core dataset load");
 
   const coreData = await fetchJsonWithFallback(REMOTE_CORE_URL, LOCAL_CORE_URL);
   const dataset = normalizeDataset(coreData);
   coreResult = dataset;
 
+  endPhase({ cells: dataset.cells.length, genes: dataset.genes.length });
   onProgress?.({ phase: "done", percent: 100, message: "Core data loaded" });
   return dataset;
 }
@@ -177,7 +186,8 @@ async function loadCoreDataset(
 // ---------------------------------------------------------------------------
 async function loadExpressionMatrix(
   cellIds: string[],
-  onProgress?: (p: LoadProgress) => void
+  onProgress?: (p: LoadProgress) => void,
+  signal?: AbortSignal
 ): Promise<ExpressionMatrix> {
   onProgress?.({
     phase: "downloading",
@@ -185,12 +195,20 @@ async function loadExpressionMatrix(
     message: "Downloading expression matrix…",
   });
 
-  const bytes = await streamFetchBytes(REMOTE_EXPR_URL, LOCAL_EXPR_URL, (pct, msg) => {
-    onProgress?.({ phase: "downloading", percent: pct, message: msg });
-  });
+  const endDownload = startPhase("expression matrix download");
+  const bytes = await streamFetchBytes(
+    REMOTE_EXPR_URL,
+    LOCAL_EXPR_URL,
+    (pct, msg) => {
+      onProgress?.({ phase: "downloading", percent: pct, message: msg });
+    },
+    signal
+  );
+  endDownload({ bytes: bytes.byteLength });
 
   onProgress?.({ phase: "parsing", percent: 0, message: "Decoding expression matrix…" });
 
+  const endDecode = startPhase("expression matrix decode");
   let sparse: Map<string, SparseGene>;
   try {
     sparse = parseSparseExpression(bytes, (fraction) => {
@@ -206,12 +224,14 @@ async function loadExpressionMatrix(
         `Regenerate the split files with scripts/compress_dataset.py. Details: ${e}`
     );
   }
+  endDecode({ genes: sparse.size, peakHeapMB: Number(getPeakHeapMB().toFixed(1)) });
 
   const matrix = new SparseExpressionMatrix(sparse, cellIds);
   exprResult = matrix;
   onProgress?.({ phase: "done", percent: 100, message: "Expression matrix ready" });
   return matrix;
 }
+
 
 /** Try remote URL first, fall back to local */
 async function fetchJsonWithFallback(remoteUrl: string, localUrl: string): Promise<unknown> {
