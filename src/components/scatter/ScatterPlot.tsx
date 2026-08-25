@@ -16,6 +16,8 @@ interface ScatterPlotProps {
   cells: Cell[];
   expressionData?: Map<string, number>;
   selectedGene: string | null;
+  /** Gene(s) are absent from the loaded matrix — show an explicit "not detected" state */
+  expressionNotDetected?: boolean;
   pointSize: number;
   showClusters: boolean;
   showLabels: boolean;
