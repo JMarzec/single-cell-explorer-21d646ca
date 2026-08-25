@@ -3,21 +3,28 @@ import { getGeneExpression as getDemoGeneExpression } from "@/data/demoData";
 
 /**
  * Get gene expression data from the dataset.
- * Uses real expression data if available, falls back to demo data generation.
+ * Uses real expression data when an expression matrix is present.
+ * If the matrix exists but the gene has no entries, the gene is not expressed
+ * (sparse encoding omits all-zero genes) so zeros are returned — never synthetic values.
+ * Synthetic demo values are only used for the built-in demo dataset (no matrix at all).
  */
 export function getExpressionData(
   dataset: SingleCellDataset,
   gene: string
 ): Map<string, number> {
-  // Check if dataset has real expression data
-  if (dataset.expression && dataset.expression[gene]) {
+  if (dataset.expression) {
     const exprData = dataset.expression[gene];
-    return new Map(Object.entries(exprData));
+    if (exprData) {
+      return new Map(Object.entries(exprData));
+    }
+    // Real dataset loaded, gene absent from matrix => no expression detected
+    return new Map(dataset.cells.map((cell) => [cell.id, 0]));
   }
-  
-  // Fallback to demo data generation
+
+  // Demo dataset only: generated illustrative values
   return getDemoGeneExpression(dataset.cells, gene);
 }
+
 
 /**
  * Get expression values for multiple genes.
