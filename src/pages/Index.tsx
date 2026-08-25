@@ -16,7 +16,7 @@ import { PseudotimeHeatmap } from "@/components/analysis/PseudotimeHeatmap";
 import { calculatePseudotime } from "@/components/analysis/TrajectoryAnalysis";
 
 import { generateDemoDataset } from "@/data/demoData";
-import { fetchRemoteDataset, LoadProgress } from "@/lib/datasetLoader";
+import { fetchCoreDataset, fetchExpressionMatrix, LoadProgress } from "@/lib/datasetLoader";
 import { getExpressionData, getMultiGeneExpression, getAveragedExpression, getAnnotationValues, getAnnotationColorMap, calculatePercentile } from "@/lib/expressionUtils";
 import { getPaletteGradientCSS } from "@/lib/colorPalettes";
 import { VisualizationSettings, SingleCellDataset, CellFilterState as CellFilterType, Cell, ClusterInfo, ColorPalette } from "@/types/singleCell";
@@ -110,25 +110,49 @@ const Index = () => {
   const [dataset, setDataset] = useState<SingleCellDataset>(defaultDataset);
   const [isLoadingRemote, setIsLoadingRemote] = useState(true);
   const [loadProgress, setLoadProgress] = useState<LoadProgress>({ phase: "downloading", percent: 0, message: "Initialising…" });
+  const [exprProgress, setExprProgress] = useState<LoadProgress | null>(null);
+  const [exprReady, setExprReady] = useState(false);
   const [remoteError, setRemoteError] = useState<string | null>(null);
   const [tourOpen, setTourOpen] = useState(false);
   const originalDatasetRef = useRef<SingleCellDataset>(defaultDataset);
 
-  // Fetch remote dataset on mount with progress tracking
+  // Load the small core dataset first so the dashboard renders quickly,
+  // then stream the expression matrix in the background.
   useEffect(() => {
-    fetchRemoteDataset((p) => setLoadProgress(p))
-      .then((remoteDataset) => {
-        console.log("Remote dataset loaded:", remoteDataset.metadata.name, remoteDataset.cells.length, "cells,", remoteDataset.genes.length, "genes");
-        setDataset(remoteDataset);
-        originalDatasetRef.current = remoteDataset;
+    let cancelled = false;
+
+    fetchCoreDataset((p) => setLoadProgress(p))
+      .then((core) => {
+        if (cancelled) return;
+        setDataset(core);
+        originalDatasetRef.current = core;
+        setIsLoadingRemote(false);
+        setExprProgress({ phase: "downloading", percent: 0, message: "Downloading expression matrix…" });
+
+        return fetchExpressionMatrix(core.cells.map((c) => c.id), (p) => {
+          if (!cancelled) setExprProgress(p);
+        }).then((expression) => {
+          if (cancelled) return;
+          setDataset((prev) => ({ ...prev, expression }));
+          originalDatasetRef.current = { ...originalDatasetRef.current, expression };
+          setExprReady(true);
+          setExprProgress(null);
+        });
       })
       .catch((err) => {
+        if (cancelled) return;
         const msg = err instanceof Error ? err.message : String(err);
         console.error("Failed to load remote dataset:", msg);
         setRemoteError(msg);
-      })
-      .finally(() => setIsLoadingRemote(false));
+        setExprProgress(null);
+        setIsLoadingRemote(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
 
   // Selected cells from lasso/rectangle selection
   const [selectedCells, setSelectedCells] = useState<Cell[]>([]);
@@ -343,6 +367,22 @@ const Index = () => {
           </p>
         </div>
       )}
+      {exprProgress && (
+        <div className="bg-primary/10 border-b border-primary/20 px-4 py-2">
+          <div className="container mx-auto flex items-center gap-3">
+            <p className="text-xs text-muted-foreground whitespace-nowrap">
+              {exprProgress.message}
+            </p>
+            <Progress
+              value={exprProgress.percent > 0 ? exprProgress.percent : undefined}
+              className="h-1.5 flex-1"
+            />
+            <p className="text-xs text-muted-foreground w-10 text-right">
+              {exprProgress.percent}%
+            </p>
+          </div>
+        </div>
+      )}
       <Header metadata={dataset.metadata} onStartTour={() => setTourOpen(true)} />
       <ProductTour steps={tourSteps} isOpen={tourOpen} onClose={() => setTourOpen(false)} />
 
@@ -492,13 +532,23 @@ const Index = () => {
               filter={settings.cellFilter}
               onFilterChange={(filter) => handleSettingsChange({ cellFilter: filter })}
             />
-            <div data-tour="gene-selection">
+            <div
+              data-tour="gene-selection"
+              className={!exprReady && !remoteError ? "opacity-60 pointer-events-none" : undefined}
+              aria-busy={!exprReady && !remoteError}
+            >
               <GeneSelectionPanel
                 genes={dataset.genes}
                 settings={settings}
                 onSettingsChange={handleSettingsChange}
               />
+              {!exprReady && !remoteError && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Gene expression becomes available once the expression matrix finishes loading.
+                </p>
+              )}
             </div>
+
             <ClusterAnnotationTool
               clusters={dataset.clusters}
               onRenameCluster={handleRenameCluster}

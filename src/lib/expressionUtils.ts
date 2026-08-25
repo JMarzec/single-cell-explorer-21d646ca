@@ -12,18 +12,22 @@ export function getExpressionData(
   dataset: SingleCellDataset,
   gene: string
 ): Map<string, number> {
-  if (dataset.expression) {
-    const exprData = dataset.expression[gene];
-    if (exprData) {
-      return new Map(Object.entries(exprData));
+  const matrix = dataset.expression;
+  if (matrix) {
+    const values = matrix.getValues(gene);
+    const result = new Map<string, number>();
+    const cellIds = matrix.cellIds;
+    for (let i = 0; i < cellIds.length; i++) {
+      // Gene absent from the matrix => no expression detected
+      result.set(cellIds[i], values ? values[i] : 0);
     }
-    // Real dataset loaded, gene absent from matrix => no expression detected
-    return new Map(dataset.cells.map((cell) => [cell.id, 0]));
+    return result;
   }
 
   // Demo dataset only: generated illustrative values
   return getDemoGeneExpression(dataset.cells, gene);
 }
+
 
 
 /**

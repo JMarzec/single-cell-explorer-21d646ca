@@ -1,19 +1,16 @@
-import { SingleCellDataset } from "@/types/singleCell";
-import { decode } from "@msgpack/msgpack";
+import { ExpressionMatrix, SingleCellDataset } from "@/types/singleCell";
+import { parseSparseExpression, SparseGene } from "@/lib/msgpackSparse";
+import { SparseExpressionMatrix, matrixFromRecord } from "@/lib/expressionMatrix";
 
 /**
  * Remote URLs for the split compressed dataset files.
- * These are served from GitHub via media.githubusercontent.com for CORS + LFS support.
+ * These are served from GitHub (media.* for LFS-backed binaries) with CORS support.
  * Update these URLs if you move the files to a different host.
  */
 const REMOTE_CORE_URL =
   "https://raw.githubusercontent.com/JMarzec/single-cell-explorer-21d646ca/main/public/dataset_core.json";
 const REMOTE_EXPR_URL =
   "https://media.githubusercontent.com/media/JMarzec/single-cell-explorer-21d646ca/main/public/dataset_expression.msgpack";
-
-/** Fallback: original monolithic JSON */
-const REMOTE_DATASET_URL =
-  "https://media.githubusercontent.com/media/JMarzec/single-cell-explorer-21d646ca/main/public/heart_organoid_S1_3_annot.json";
 
 /** Local paths (served from public/ in dev and production) */
 const LOCAL_CORE_URL = "/dataset_core.json";
@@ -88,7 +85,9 @@ export function normalizeDataset(data: unknown): SingleCellDataset {
     genes: (obj.genes as string[]) || [],
     clusters,
     differentialExpression,
-    expression: rawExpression || undefined,
+    expression: rawExpression
+      ? matrixFromRecord(rawExpression, cells.map((c) => c.id))
+      : undefined,
     annotationOptions,
   };
 }
@@ -96,108 +95,122 @@ export function normalizeDataset(data: unknown): SingleCellDataset {
 // ---------------------------------------------------------------------------
 // Caching
 // ---------------------------------------------------------------------------
-let cachedPromise: Promise<SingleCellDataset> | null = null;
-let cachedResult: SingleCellDataset | null = null;
+let corePromise: Promise<SingleCellDataset> | null = null;
+let coreResult: SingleCellDataset | null = null;
+let exprPromise: Promise<ExpressionMatrix> | null = null;
+let exprResult: ExpressionMatrix | null = null;
 
-export function fetchRemoteDataset(
+/**
+ * Fetch the small core dataset (cells, clusters, genes, DE results) without the
+ * expression matrix. Cheap enough to block the first render on.
+ */
+export function fetchCoreDataset(
   onProgress?: (p: LoadProgress) => void
 ): Promise<SingleCellDataset> {
-  if (cachedResult) {
+  if (coreResult) {
     onProgress?.({ phase: "done", percent: 100, message: "Loaded from cache" });
-    return Promise.resolve(cachedResult);
+    return Promise.resolve(coreResult);
   }
 
-  if (!cachedPromise) {
-    cachedPromise = loadDataset(onProgress);
-    cachedPromise.catch(() => {
-      cachedPromise = null;
+  if (!corePromise) {
+    corePromise = loadCoreDataset(onProgress);
+    corePromise.catch(() => {
+      corePromise = null;
     });
   }
-  return cachedPromise;
+  return corePromise;
 }
 
-// ---------------------------------------------------------------------------
-// Main loader: tries split files first, falls back to monolithic JSON
-// ---------------------------------------------------------------------------
-async function loadDataset(
+/**
+ * Fetch and decode the expression matrix. Streams the packed file and stores
+ * values in typed arrays, so peak memory stays close to the packed size.
+ */
+export function fetchExpressionMatrix(
+  cellIds: string[],
   onProgress?: (p: LoadProgress) => void
-): Promise<SingleCellDataset> {
-  // Try loading split compressed files first
-  try {
-    const dataset = await loadSplitDataset(onProgress);
-    cachedResult = dataset;
-    onProgress?.({ phase: "done", percent: 100, message: "Dataset ready" });
-    return dataset;
-  } catch (splitError) {
-    console.warn("Split dataset not available, falling back to monolithic JSON:", splitError);
+): Promise<ExpressionMatrix> {
+  if (exprResult) {
+    onProgress?.({ phase: "done", percent: 100, message: "Loaded from cache" });
+    return Promise.resolve(exprResult);
   }
 
-  // Fallback: stream the original 1GB JSON
-  const dataset = await streamFetchAndParse(onProgress);
-  cachedResult = dataset;
+  if (!exprPromise) {
+    exprPromise = loadExpressionMatrix(cellIds, onProgress);
+    exprPromise.catch(() => {
+      exprPromise = null;
+    });
+  }
+  return exprPromise;
+}
+
+/** Convenience loader: core data plus the expression matrix. */
+export async function fetchRemoteDataset(
+  onProgress?: (p: LoadProgress) => void
+): Promise<SingleCellDataset> {
+  const core = await fetchCoreDataset(onProgress);
+  const expression = await fetchExpressionMatrix(
+    core.cells.map((c) => c.id),
+    onProgress
+  );
   onProgress?.({ phase: "done", percent: 100, message: "Dataset ready" });
-  return dataset;
+  return { ...core, expression };
 }
 
 // ---------------------------------------------------------------------------
-// Split loader: core JSON + expression MessagePack
+// Core dataset
 // ---------------------------------------------------------------------------
-async function loadSplitDataset(
+async function loadCoreDataset(
   onProgress?: (p: LoadProgress) => void
 ): Promise<SingleCellDataset> {
   onProgress?.({ phase: "downloading", percent: 0, message: "Loading core data…" });
 
-  // 1. Fetch core JSON (small, fast)
   const coreData = await fetchJsonWithFallback(REMOTE_CORE_URL, LOCAL_CORE_URL);
-
   const dataset = normalizeDataset(coreData);
+  coreResult = dataset;
 
-  onProgress?.({ phase: "downloading", percent: 5, message: "Core data loaded. Downloading expression matrix…" });
-
-  // 2. Stream-fetch the expression MessagePack
-  const exprBytes = await streamFetchBytes(
-    REMOTE_EXPR_URL,
-    LOCAL_EXPR_URL,
-    (pct, msg) => {
-      onProgress?.({ phase: "downloading", percent: 5 + Math.round(pct * 0.9), message: msg });
-    }
-  );
-
-  onProgress?.({ phase: "parsing", percent: 96, message: "Decoding expression matrix…" });
-
-  // 3. Decode MessagePack -> sparse -> dense
-  const sparseExpression = decode(exprBytes) as Record<string, [number, number][]>;
-
-  onProgress?.({ phase: "parsing", percent: 98, message: "Reconstructing expression data…" });
-
-  const cellIds = dataset.cells.map((c) => c.id);
-  dataset.expression = sparseToDense(sparseExpression, cellIds);
-  dataset.metadata.geneCount = Object.keys(dataset.expression).length;
-
-  // Update genes list from expression keys if core didn't have it
-  if (dataset.genes.length === 0) {
-    dataset.genes = Object.keys(dataset.expression);
-  }
-
+  onProgress?.({ phase: "done", percent: 100, message: "Core data loaded" });
   return dataset;
 }
 
-/** Convert sparse indexed format back to dense: gene -> {cellId: value} */
-function sparseToDense(
-  sparse: Record<string, [number, number][]>,
-  cellIds: string[]
-): Record<string, Record<string, number>> {
-  const result: Record<string, Record<string, number>> = {};
-  for (const [gene, entries] of Object.entries(sparse)) {
-    const cellMap: Record<string, number> = {};
-    for (const [cellIdx, value] of entries) {
-      if (cellIdx < cellIds.length) {
-        cellMap[cellIds[cellIdx]] = value;
-      }
-    }
-    result[gene] = cellMap;
+// ---------------------------------------------------------------------------
+// Expression matrix
+// ---------------------------------------------------------------------------
+async function loadExpressionMatrix(
+  cellIds: string[],
+  onProgress?: (p: LoadProgress) => void
+): Promise<ExpressionMatrix> {
+  onProgress?.({
+    phase: "downloading",
+    percent: 0,
+    message: "Downloading expression matrix…",
+  });
+
+  const bytes = await streamFetchBytes(REMOTE_EXPR_URL, LOCAL_EXPR_URL, (pct, msg) => {
+    onProgress?.({ phase: "downloading", percent: pct, message: msg });
+  });
+
+  onProgress?.({ phase: "parsing", percent: 0, message: "Decoding expression matrix…" });
+
+  let sparse: Map<string, SparseGene>;
+  try {
+    sparse = parseSparseExpression(bytes, (fraction) => {
+      onProgress?.({
+        phase: "parsing",
+        percent: Math.round(fraction * 100),
+        message: "Decoding expression matrix…",
+      });
+    });
+  } catch (e) {
+    throw new Error(
+      `Could not decode the expression matrix (${(bytes.byteLength / 1e6).toFixed(0)} MB). ` +
+        `Regenerate the split files with scripts/compress_dataset.py. Details: ${e}`
+    );
   }
-  return result;
+
+  const matrix = new SparseExpressionMatrix(sparse, cellIds);
+  exprResult = matrix;
+  onProgress?.({ phase: "done", percent: 100, message: "Expression matrix ready" });
+  return matrix;
 }
 
 /** Try remote URL first, fall back to local */
@@ -208,11 +221,19 @@ async function fetchJsonWithFallback(remoteUrl: string, localUrl: string): Promi
   } catch { /* fall through */ }
 
   const resp = await fetch(localUrl);
-  if (!resp.ok) throw new Error(`Failed to fetch from both remote and local: ${localUrl}`);
+  if (!resp.ok) {
+    throw new Error(
+      `Could not load the core dataset from either ${remoteUrl} or ${localUrl}`
+    );
+  }
   return resp.json();
 }
 
-/** Stream-fetch binary data with progress, trying remote then local */
+/**
+ * Stream-fetch binary data with progress, trying remote then local.
+ * Writes directly into a single preallocated buffer when the server reports a
+ * content length, avoiding a second full copy of the payload.
+ */
 async function streamFetchBytes(
   remoteUrl: string,
   localUrl: string,
@@ -227,92 +248,68 @@ async function streamFetchBytes(
 
   if (!response) {
     const resp = await fetch(localUrl);
-    if (!resp.ok) throw new Error(`Failed to fetch expression data`);
+    if (!resp.ok) {
+      throw new Error(
+        `Could not load the expression matrix from either ${remoteUrl} or ${localUrl}`
+      );
+    }
     response = resp;
   }
 
   const contentLength = Number(response.headers.get("content-length") || 0);
   const reader = response.body?.getReader();
-  if (!reader) throw new Error("ReadableStream not supported");
+  if (!reader) throw new Error("Streaming downloads are not supported in this browser");
 
-  const chunks: Uint8Array[] = [];
+  const totalMb = contentLength > 0 ? ` / ${(contentLength / 1e6).toFixed(0)}` : "";
   let receivedBytes = 0;
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    chunks.push(value);
-    receivedBytes += value.length;
-
+  const report = () => {
     const pct = contentLength > 0
       ? Math.min(99, Math.round((receivedBytes / contentLength) * 100))
       : 50;
-    const mb = (receivedBytes / 1e6).toFixed(0);
-    const totalMb = contentLength > 0 ? ` / ${(contentLength / 1e6).toFixed(0)}` : "";
-    onProgress(pct, `Downloading expression… ${mb}${totalMb} MB`);
+    onProgress(pct, `Downloading expression… ${(receivedBytes / 1e6).toFixed(0)}${totalMb} MB`);
+  };
+
+  // Fast path: single preallocated buffer (no second copy)
+  if (contentLength > 0) {
+    const buffer = new Uint8Array(contentLength);
+    let overflow: Uint8Array[] | null = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (receivedBytes + value.length <= contentLength) {
+        buffer.set(value, receivedBytes);
+      } else {
+        // Server under-reported the size; keep the tail separately
+        (overflow ||= []).push(value);
+      }
+      receivedBytes += value.length;
+      report();
+    }
+
+    if (!overflow && receivedBytes === contentLength) return buffer;
+    if (!overflow) return buffer.subarray(0, receivedBytes);
+
+    const merged = new Uint8Array(receivedBytes);
+    merged.set(buffer.subarray(0, contentLength), 0);
+    let offset = contentLength;
+    for (const chunk of overflow) {
+      merged.set(chunk, offset);
+      offset += chunk.length;
+    }
+    return merged;
   }
 
-  const fullBuffer = new Uint8Array(receivedBytes);
-  let offset = 0;
-  for (const chunk of chunks) {
-    fullBuffer.set(chunk, offset);
-    offset += chunk.length;
-  }
-  chunks.length = 0;
-
-  return fullBuffer;
-}
-
-// ---------------------------------------------------------------------------
-// Fallback: stream-fetch the monolithic 1GB JSON
-// ---------------------------------------------------------------------------
-async function streamFetchAndParse(
-  onProgress?: (p: LoadProgress) => void
-): Promise<SingleCellDataset> {
-  onProgress?.({ phase: "downloading", percent: 0, message: "Starting download…" });
-
-  const response = await fetch(REMOTE_DATASET_URL);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch dataset: ${response.status}`);
-  }
-
-  const contentLength = Number(response.headers.get("content-length") || 0);
-  const reader = response.body?.getReader();
-
-  if (!reader) {
-    throw new Error("ReadableStream not supported in this browser");
-  }
-
+  // Unknown length: collect chunks, then concatenate once
   const chunks: Uint8Array[] = [];
-  let receivedBytes = 0;
-
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-
     chunks.push(value);
     receivedBytes += value.length;
-
-    if (contentLength > 0) {
-      const pct = Math.min(99, Math.round((receivedBytes / contentLength) * 100));
-      const mb = (receivedBytes / 1e6).toFixed(0);
-      const totalMb = (contentLength / 1e6).toFixed(0);
-      onProgress?.({
-        phase: "downloading",
-        percent: pct,
-        message: `Downloading… ${mb} / ${totalMb} MB`,
-      });
-    } else {
-      const mb = (receivedBytes / 1e6).toFixed(0);
-      onProgress?.({
-        phase: "downloading",
-        percent: 50,
-        message: `Downloading… ${mb} MB`,
-      });
-    }
+    report();
   }
-
-  onProgress?.({ phase: "parsing", percent: 100, message: "Parsing JSON…" });
 
   const fullBuffer = new Uint8Array(receivedBytes);
   let offset = 0;
@@ -321,19 +318,5 @@ async function streamFetchAndParse(
     offset += chunk.length;
   }
   chunks.length = 0;
-
-  const decoder = new TextDecoder();
-  const text = decoder.decode(fullBuffer);
-
-  let data: unknown;
-  try {
-    data = JSON.parse(text);
-  } catch (e) {
-    throw new Error(
-      `Failed to parse dataset JSON (${(receivedBytes / 1e6).toFixed(0)}MB): ${e}`
-    );
-  }
-
-  onProgress?.({ phase: "parsing", percent: 100, message: "Building dataset…" });
-  return normalizeDataset(data);
+  return fullBuffer;
 }
