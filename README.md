@@ -21,8 +21,6 @@ An interactive web portal for exploring and visualizing single-cell RNA sequenci
 - **Trajectory Analysis**: Pseudotime visualization for developmental lineages with branching paths
 
 ### Data Handling
-- **JSON Data Import**: Upload your own datasets exported from Seurat/Scanpy
-- **R Export Script**: Downloadable template script for exporting Seurat objects
 - **Cell Filtering**: Subset cells by sample, cluster, or other metadata
 - **Demo Dataset**: Pre-loaded developmental heart data for exploration
 
