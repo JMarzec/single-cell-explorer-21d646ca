@@ -110,10 +110,10 @@ The expected input format:
 
 ### R Export Script
 
-Download the R export template from the app to convert your Seurat object:
+A Seurat export template lives in the repository (not downloadable from the app):
 
 ```r
-Rscript export_template.R seurat_object.rds output.json
+Rscript scripts/SC_dashboard_export_template.R seurat_object.rds output.json
 ```
 
 ## Technology Stack
@@ -125,6 +125,13 @@ Rscript export_template.R seurat_object.rds output.json
 - **Scatter Plots**: Canvas-based with deck.gl
 - **State Management**: React hooks
 - **Search**: Fuse.js for fuzzy gene search
+- **Expression storage**: sparse typed arrays decoded from MessagePack
+
+## QA instrumentation
+
+Dataset download and decode phases are timed and logged to the browser console
+(`[perf] …`), including used/peak JS heap where the browser exposes it
+(`src/lib/perf.ts`). Use these logs to catch hangs or memory blow-ups.
 
 ## Project Structure
 
@@ -135,13 +142,13 @@ src/
 │   ├── layout/        # Header, navigation
 │   ├── plots/         # Violin, Feature, Dot plots
 │   ├── scatter/       # UMAP scatter plot components
-│   ├── table/         # Differential expression table
-│   └── upload/        # Dataset uploader
-├── data/              # Demo data generation
-├── lib/               # Utility functions
+│   └── table/         # Differential expression table
+├── data/              # Fallback demo data generation
+├── lib/               # Dataset loading, sparse matrix, perf instrumentation
 ├── pages/             # Page components
 └── types/             # TypeScript interfaces
 ```
+
 
 ## Contributing
 
