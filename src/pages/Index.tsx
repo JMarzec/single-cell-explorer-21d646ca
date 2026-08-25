@@ -487,9 +487,9 @@ const Index = () => {
 
 
         {/* Dual Plot Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 items-stretch">
           {/* Left Plot - Metadata Annotation */}
-          <div className="space-y-4" data-tour="metadata-plot">
+          <div className="flex flex-col space-y-4 h-full" data-tour="metadata-plot">
             <div className="flex items-center justify-between p-3 bg-card border border-border rounded-lg">
               <h2 className="font-semibold text-foreground text-base">Metadata Annotation</h2>
               <Select value={selectedAnnotation} onValueChange={setSelectedAnnotation}>
@@ -506,7 +506,7 @@ const Index = () => {
               </Select>
             </div>
             
-            <div className="h-[450px]">
+            <div className="flex-1 min-h-[400px]">
               <ScatterPlot
                 cells={dataset.cells}
                 selectedGene={null}
