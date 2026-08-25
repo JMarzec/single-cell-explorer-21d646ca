@@ -106,6 +106,7 @@ export function ScatterPlot({
   cells,
   expressionData,
   selectedGene,
+  expressionNotDetected = false,
   pointSize,
   showClusters,
   showLabels,
