@@ -490,7 +490,7 @@ const Index = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 items-stretch">
           {/* Left Plot - Metadata Annotation */}
           <div className="flex flex-col gap-4 h-full" data-tour="metadata-plot">
-            <div className="flex items-center justify-between p-3 bg-card border border-border rounded-lg">
+            <div className="flex items-center justify-between p-3 min-h-[66px] bg-card border border-border rounded-lg">
               <h2 className="font-semibold text-foreground text-base">Metadata Annotation</h2>
               <Select value={selectedAnnotation} onValueChange={setSelectedAnnotation}>
                 <SelectTrigger className="w-40">
