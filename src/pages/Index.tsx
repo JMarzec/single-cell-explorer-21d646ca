@@ -650,22 +650,6 @@ const Index = () => {
               filter={settings.cellFilter}
               onFilterChange={(filter) => handleSettingsChange({ cellFilter: filter })}
             />
-            <div
-              data-tour="gene-selection"
-              className={!exprReady && !remoteError ? "opacity-60 pointer-events-none" : undefined}
-              aria-busy={!exprReady && !remoteError}
-            >
-              <GeneSelectionPanel
-                genes={dataset.genes}
-                settings={settings}
-                onSettingsChange={handleSettingsChange}
-              />
-              {!exprReady && !remoteError && (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Gene expression becomes available once the expression matrix finishes loading.
-                </p>
-              )}
-            </div>
 
             <ClusterAnnotationTool
               clusters={dataset.clusters}
