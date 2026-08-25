@@ -566,7 +566,17 @@ const Index = () => {
                 {effectiveGeneLabel && (
                   <span className="ml-2 text-primary font-mono text-sm">({effectiveGeneLabel})</span>
                 )}
+                {plotGeneUndetected && (
+                  <span className="ml-2 text-xs font-medium uppercase tracking-wide text-muted-foreground border border-border rounded px-1.5 py-0.5">
+                    Not detected
+                  </span>
+                )}
               </h2>
+              {plotGeneUndetected && (
+                <p className="text-xs text-muted-foreground mt-1" role="status">
+                  No expression recorded for {undetectedGenes.join(", ")} in this dataset — all cells are zero.
+                </p>
+              )}
             </div>
             
             <div className="h-[450px]">
@@ -574,6 +584,7 @@ const Index = () => {
                 cells={dataset.cells}
                 expressionData={expressionData}
                 selectedGene={effectiveGeneLabel}
+                expressionNotDetected={plotGeneUndetected}
                 pointSize={settings.pointSize}
                 showClusters={!effectiveGeneLabel}
                 showLabels={settings.showLabels}
@@ -590,7 +601,7 @@ const Index = () => {
             </div>
             
             {/* Expression Level Legend */}
-            {effectiveGeneLabel && (
+            {effectiveGeneLabel && !plotGeneUndetected && (
               <div className="bg-card border border-border rounded-lg p-3">
                 <h4 className="text-sm font-medium text-foreground mb-2">Expression Level</h4>
                 <div className="flex items-center gap-2">
@@ -608,6 +619,7 @@ const Index = () => {
                 )}
               </div>
             )}
+
           </div>
         </div>
 
