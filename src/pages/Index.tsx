@@ -17,7 +17,7 @@ import { calculatePseudotime } from "@/components/analysis/TrajectoryAnalysis";
 
 import { generateDemoDataset } from "@/data/demoData";
 import { fetchCoreDataset, fetchExpressionMatrix, LoadProgress } from "@/lib/datasetLoader";
-import { getExpressionData, getMultiGeneExpression, getAveragedExpression, getAnnotationValues, getAnnotationColorMap, calculatePercentile } from "@/lib/expressionUtils";
+import { getExpressionData, getMultiGeneExpression, getAveragedExpression, getAnnotationValues, getAnnotationColorMap, calculatePercentile, getUndetectedGenes, isGeneUndetected } from "@/lib/expressionUtils";
 import { getPaletteGradientCSS } from "@/lib/colorPalettes";
 import { VisualizationSettings, SingleCellDataset, CellFilterState as CellFilterType, Cell, ClusterInfo, ColorPalette } from "@/types/singleCell";
 import { Switch } from "@/components/ui/switch";
@@ -112,26 +112,36 @@ const Index = () => {
   const [loadProgress, setLoadProgress] = useState<LoadProgress>({ phase: "downloading", percent: 0, message: "Initialising…" });
   const [exprProgress, setExprProgress] = useState<LoadProgress | null>(null);
   const [exprReady, setExprReady] = useState(false);
+  const [exprCancelled, setExprCancelled] = useState(false);
   const [remoteError, setRemoteError] = useState<string | null>(null);
   const [tourOpen, setTourOpen] = useState(false);
   const originalDatasetRef = useRef<SingleCellDataset>(defaultDataset);
+  const exprAbortRef = useRef<AbortController | null>(null);
+  const [exprAttempt, setExprAttempt] = useState(0);
 
   // Load the small core dataset first so the dashboard renders quickly,
-  // then stream the expression matrix in the background.
+  // then stream the expression matrix in the background (cancellable).
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
+    exprAbortRef.current = controller;
 
     fetchCoreDataset((p) => setLoadProgress(p))
       .then((core) => {
         if (cancelled) return;
-        setDataset(core);
+        setDataset((prev) => (prev.expression ? { ...core, expression: prev.expression } : core));
         originalDatasetRef.current = core;
         setIsLoadingRemote(false);
+        setExprCancelled(false);
         setExprProgress({ phase: "downloading", percent: 0, message: "Downloading expression matrix…" });
 
-        return fetchExpressionMatrix(core.cells.map((c) => c.id), (p) => {
-          if (!cancelled) setExprProgress(p);
-        }).then((expression) => {
+        return fetchExpressionMatrix(
+          core.cells.map((c) => c.id),
+          (p) => {
+            if (!cancelled) setExprProgress(p);
+          },
+          controller.signal
+        ).then((expression) => {
           if (cancelled) return;
           setDataset((prev) => ({ ...prev, expression }));
           originalDatasetRef.current = { ...originalDatasetRef.current, expression };
@@ -141,17 +151,37 @@ const Index = () => {
       })
       .catch((err) => {
         if (cancelled) return;
+        const aborted =
+          (err instanceof DOMException && err.name === "AbortError") ||
+          controller.signal.aborted;
+        setExprProgress(null);
+        setIsLoadingRemote(false);
+        if (aborted) {
+          setExprCancelled(true);
+          return;
+        }
         const msg = err instanceof Error ? err.message : String(err);
         console.error("Failed to load remote dataset:", msg);
         setRemoteError(msg);
-        setExprProgress(null);
-        setIsLoadingRemote(false);
       });
 
     return () => {
       cancelled = true;
     };
+  }, [exprAttempt]);
+
+  const handleCancelExpression = useCallback(() => {
+    exprAbortRef.current?.abort();
+    setExprProgress(null);
+    setExprCancelled(true);
   }, []);
+
+  const handleRetryExpression = useCallback(() => {
+    setExprCancelled(false);
+    setRemoteError(null);
+    setExprAttempt((n) => n + 1);
+  }, []);
+
 
 
   // Selected cells from lasso/rectangle selection
@@ -212,6 +242,24 @@ const Index = () => {
     if (genes.length === 0) return {};
     return getMultiGeneExpression(dataset, genes);
   }, [settings.selectedGenes, dataset]);
+
+  // Genes that are absent from the loaded expression matrix ("not detected")
+  const undetectedGenes = useMemo(() => {
+    const genes = [
+      ...(settings.selectedGene ? [settings.selectedGene] : []),
+      ...(settings.selectedGenes || []),
+    ];
+    return getUndetectedGenes(dataset, Array.from(new Set(genes)));
+  }, [settings.selectedGene, settings.selectedGenes, dataset]);
+
+  const plotGeneUndetected = useMemo(() => {
+    if (settings.selectedGene) return isGeneUndetected(dataset, settings.selectedGene);
+    const genes = settings.selectedGenes || [];
+    if (!settings.showAveragedExpression || genes.length === 0) return false;
+    return getUndetectedGenes(dataset, genes).length === genes.length;
+  }, [settings.selectedGene, settings.selectedGenes, settings.showAveragedExpression, dataset]);
+
+
 
   const handleDatasetLoad = useCallback((newDataset: SingleCellDataset) => {
     setDataset(newDataset);
@@ -343,7 +391,9 @@ const Index = () => {
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-muted border-t-primary" />
         <div className="text-center space-y-2">
           <p className="text-foreground font-medium">Loading dataset…</p>
-          <p className="text-muted-foreground text-sm">{loadProgress.message}</p>
+          <p className="text-muted-foreground text-sm" role="status" aria-live="polite">
+            {loadProgress.message}
+          </p>
         </div>
         <div className="w-64">
           <Progress value={showPercent ? loadProgress.percent : undefined} className="h-2" />
@@ -351,6 +401,12 @@ const Index = () => {
             <p className="text-xs text-muted-foreground text-center mt-1">{loadProgress.percent}%</p>
           )}
         </div>
+        <button
+          onClick={handleCancelExpression}
+          className="text-xs text-muted-foreground underline hover:text-foreground"
+        >
+          Cancel download
+        </button>
       </div>
     );
   }
@@ -365,12 +421,22 @@ const Index = () => {
           <p className="text-xs text-muted-foreground mt-1">
             Showing demo data instead. The remote file may be too large for your browser's memory.
           </p>
+          <button
+            onClick={handleRetryExpression}
+            className="mt-2 text-xs font-medium text-primary underline hover:no-underline"
+          >
+            Retry
+          </button>
         </div>
       )}
       {exprProgress && (
         <div className="bg-primary/10 border-b border-primary/20 px-4 py-2">
           <div className="container mx-auto flex items-center gap-3">
-            <p className="text-xs text-muted-foreground whitespace-nowrap">
+            <p
+              className="text-xs text-muted-foreground whitespace-nowrap"
+              role="status"
+              aria-live="polite"
+            >
               {exprProgress.message}
             </p>
             <Progress
@@ -380,9 +446,31 @@ const Index = () => {
             <p className="text-xs text-muted-foreground w-10 text-right">
               {exprProgress.percent}%
             </p>
+            <button
+              onClick={handleCancelExpression}
+              className="text-xs text-muted-foreground underline hover:text-foreground whitespace-nowrap"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}
+      {exprCancelled && !exprReady && (
+        <div className="bg-muted border-b border-border px-4 py-2">
+          <div className="container mx-auto flex items-center justify-center gap-3">
+            <p className="text-xs text-muted-foreground">
+              Expression matrix download cancelled — gene expression features are unavailable.
+            </p>
+            <button
+              onClick={handleRetryExpression}
+              className="text-xs font-medium text-primary underline hover:no-underline"
+            >
+              Resume download
+            </button>
+          </div>
+        </div>
+      )}
+
       <Header metadata={dataset.metadata} onStartTour={() => setTourOpen(true)} />
       <ProductTour steps={tourSteps} isOpen={tourOpen} onClose={() => setTourOpen(false)} />
 
@@ -478,7 +566,17 @@ const Index = () => {
                 {effectiveGeneLabel && (
                   <span className="ml-2 text-primary font-mono text-sm">({effectiveGeneLabel})</span>
                 )}
+                {plotGeneUndetected && (
+                  <span className="ml-2 text-xs font-medium uppercase tracking-wide text-muted-foreground border border-border rounded px-1.5 py-0.5">
+                    Not detected
+                  </span>
+                )}
               </h2>
+              {plotGeneUndetected && (
+                <p className="text-xs text-muted-foreground mt-1" role="status">
+                  No expression recorded for {undetectedGenes.join(", ")} in this dataset — all cells are zero.
+                </p>
+              )}
             </div>
             
             <div className="h-[450px]">
@@ -486,6 +584,7 @@ const Index = () => {
                 cells={dataset.cells}
                 expressionData={expressionData}
                 selectedGene={effectiveGeneLabel}
+                expressionNotDetected={plotGeneUndetected}
                 pointSize={settings.pointSize}
                 showClusters={!effectiveGeneLabel}
                 showLabels={settings.showLabels}
@@ -502,7 +601,7 @@ const Index = () => {
             </div>
             
             {/* Expression Level Legend */}
-            {effectiveGeneLabel && (
+            {effectiveGeneLabel && !plotGeneUndetected && (
               <div className="bg-card border border-border rounded-lg p-3">
                 <h4 className="text-sm font-medium text-foreground mb-2">Expression Level</h4>
                 <div className="flex items-center gap-2">
@@ -520,6 +619,7 @@ const Index = () => {
                 )}
               </div>
             )}
+
           </div>
         </div>
 
@@ -568,7 +668,17 @@ const Index = () => {
 
         {/* Analysis Tabs */}
         <div className="space-y-6 mt-6" data-tour="analysis-tabs">
+            {undetectedGenes.length > 0 && (
+              <div className="bg-muted border border-border rounded-lg px-4 py-2" role="status">
+                <p className="text-xs text-muted-foreground">
+                  Not detected in this dataset:{" "}
+                  <span className="font-mono text-foreground">{undetectedGenes.join(", ")}</span>. Plots
+                  below show zero expression for {undetectedGenes.length > 1 ? "these genes" : "this gene"}.
+                </p>
+              </div>
+            )}
             <Tabs defaultValue="violin" className="w-full">
+
               <TabsList>
                 <TabsTrigger value="violin" disabled={!effectiveGeneLabel}>
                   Violin Plot

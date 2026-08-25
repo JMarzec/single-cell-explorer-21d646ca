@@ -22,7 +22,11 @@ An interactive web portal for exploring and visualizing single-cell RNA sequenci
 
 ### Data Handling
 - **Cell Filtering**: Subset cells by sample, cluster, or other metadata
-- **Demo Dataset**: Pre-loaded developmental heart data for exploration
+- **Bundled Dataset**: A pre-processed heart organoid dataset loads automatically (progressive loading with a cancellable progress indicator)
+- **Explicit "not detected" state**: Genes absent from the expression matrix are reported as not detected (zeroed plots, tooltips say "not detected") — values are never invented
+
+> Note: there is no in-app dataset upload. The portal ships with a fixed, pre-processed dataset; swapping datasets is a build-time step (see below).
+
 
 ## Getting Started
 
@@ -47,9 +51,20 @@ The app will be available at `http://localhost:5173`
 
 ## Data Format
 
-### Uploading Custom Data
+### Swapping in your own dataset (build-time)
 
-Export your Seurat or Scanpy object to JSON using the provided R template script. The expected format:
+There is no upload UI in the app. To ship a different dataset, export your Seurat/Scanpy
+object to the JSON format below, then split and compress it for the browser:
+
+```bash
+python scripts/compress_dataset.py my_dataset.json public/
+# -> public/dataset_core.json (small, loaded first)
+# -> public/dataset_expression.msgpack (sparse expression, streamed in background)
+```
+
+Update the URLs at the top of `src/lib/datasetLoader.ts` if you host the files elsewhere.
+The expected input format:
+
 
 ```json
 {
@@ -95,10 +110,10 @@ Export your Seurat or Scanpy object to JSON using the provided R template script
 
 ### R Export Script
 
-Download the R export template from the app to convert your Seurat object:
+A Seurat export template lives in the repository (not downloadable from the app):
 
 ```r
-Rscript export_template.R seurat_object.rds output.json
+Rscript scripts/SC_dashboard_export_template.R seurat_object.rds output.json
 ```
 
 ## Technology Stack
@@ -110,6 +125,13 @@ Rscript export_template.R seurat_object.rds output.json
 - **Scatter Plots**: Canvas-based with deck.gl
 - **State Management**: React hooks
 - **Search**: Fuse.js for fuzzy gene search
+- **Expression storage**: sparse typed arrays decoded from MessagePack
+
+## QA instrumentation
+
+Dataset download and decode phases are timed and logged to the browser console
+(`[perf] …`), including used/peak JS heap where the browser exposes it
+(`src/lib/perf.ts`). Use these logs to catch hangs or memory blow-ups.
 
 ## Project Structure
 
@@ -120,13 +142,13 @@ src/
 │   ├── layout/        # Header, navigation
 │   ├── plots/         # Violin, Feature, Dot plots
 │   ├── scatter/       # UMAP scatter plot components
-│   ├── table/         # Differential expression table
-│   └── upload/        # Dataset uploader
-├── data/              # Demo data generation
-├── lib/               # Utility functions
+│   └── table/         # Differential expression table
+├── data/              # Fallback demo data generation
+├── lib/               # Dataset loading, sparse matrix, perf instrumentation
 ├── pages/             # Page components
 └── types/             # TypeScript interfaces
 ```
+
 
 ## Contributing
 

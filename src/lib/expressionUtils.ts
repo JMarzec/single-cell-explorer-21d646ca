@@ -28,6 +28,29 @@ export function getExpressionData(
   return getDemoGeneExpression(dataset.cells, gene);
 }
 
+/**
+ * Genes that are missing from the loaded expression matrix.
+ * Returns an empty list when no matrix is loaded yet (state is "pending",
+ * not "absent"), so callers never claim a gene is undetected prematurely.
+ */
+export function getUndetectedGenes(
+  dataset: SingleCellDataset,
+  genes: string[]
+): string[] {
+  const matrix = dataset.expression;
+  if (!matrix) return [];
+  return genes.filter((g) => g && !matrix.hasGene(g));
+}
+
+/** True when a matrix is loaded and the gene has no entries in it. */
+export function isGeneUndetected(
+  dataset: SingleCellDataset,
+  gene: string | null
+): boolean {
+  if (!gene) return false;
+  return getUndetectedGenes(dataset, [gene]).length === 1;
+}
+
 
 
 /**

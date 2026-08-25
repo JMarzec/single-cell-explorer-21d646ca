@@ -1,6 +1,7 @@
 import { ExpressionMatrix, SingleCellDataset } from "@/types/singleCell";
 import { parseSparseExpression, SparseGene } from "@/lib/msgpackSparse";
 import { SparseExpressionMatrix, matrixFromRecord } from "@/lib/expressionMatrix";
+import { startPhase, getPeakHeapMB, trackHeap } from "@/lib/perf";
 
 /**
  * Remote URLs for the split compressed dataset files.
@@ -46,9 +47,9 @@ export function normalizeDataset(data: unknown): SingleCellDataset {
 
   const rawMeta = (obj.metadata as Record<string, unknown>) || {};
   const metadata = {
-    name: String(rawMeta.name || "Uploaded Dataset"),
+    name: String(rawMeta.name || "Single-Cell Dataset"),
     description: String(
-      rawMeta.description || "User-uploaded single-cell dataset"
+      rawMeta.description || "Single-cell dataset"
     ),
     cellCount: cells.length,
     geneCount: ((obj.genes as string[]) || []).length,
@@ -124,10 +125,12 @@ export function fetchCoreDataset(
 /**
  * Fetch and decode the expression matrix. Streams the packed file and stores
  * values in typed arrays, so peak memory stays close to the packed size.
+ * Pass a signal to allow the user to cancel a long download.
  */
 export function fetchExpressionMatrix(
   cellIds: string[],
-  onProgress?: (p: LoadProgress) => void
+  onProgress?: (p: LoadProgress) => void,
+  signal?: AbortSignal
 ): Promise<ExpressionMatrix> {
   if (exprResult) {
     onProgress?.({ phase: "done", percent: 100, message: "Loaded from cache" });
@@ -135,12 +138,17 @@ export function fetchExpressionMatrix(
   }
 
   if (!exprPromise) {
-    exprPromise = loadExpressionMatrix(cellIds, onProgress);
+    exprPromise = loadExpressionMatrix(cellIds, onProgress, signal);
     exprPromise.catch(() => {
       exprPromise = null;
     });
   }
   return exprPromise;
+}
+
+/** True when the expression matrix has already been decoded. */
+export function isExpressionMatrixLoaded(): boolean {
+  return exprResult !== null;
 }
 
 /** Convenience loader: core data plus the expression matrix. */
@@ -163,11 +171,13 @@ async function loadCoreDataset(
   onProgress?: (p: LoadProgress) => void
 ): Promise<SingleCellDataset> {
   onProgress?.({ phase: "downloading", percent: 0, message: "Loading core data…" });
+  const endPhase = startPhase("core dataset load");
 
   const coreData = await fetchJsonWithFallback(REMOTE_CORE_URL, LOCAL_CORE_URL);
   const dataset = normalizeDataset(coreData);
   coreResult = dataset;
 
+  endPhase({ cells: dataset.cells.length, genes: dataset.genes.length });
   onProgress?.({ phase: "done", percent: 100, message: "Core data loaded" });
   return dataset;
 }
@@ -177,7 +187,8 @@ async function loadCoreDataset(
 // ---------------------------------------------------------------------------
 async function loadExpressionMatrix(
   cellIds: string[],
-  onProgress?: (p: LoadProgress) => void
+  onProgress?: (p: LoadProgress) => void,
+  signal?: AbortSignal
 ): Promise<ExpressionMatrix> {
   onProgress?.({
     phase: "downloading",
@@ -185,12 +196,20 @@ async function loadExpressionMatrix(
     message: "Downloading expression matrix…",
   });
 
-  const bytes = await streamFetchBytes(REMOTE_EXPR_URL, LOCAL_EXPR_URL, (pct, msg) => {
-    onProgress?.({ phase: "downloading", percent: pct, message: msg });
-  });
+  const endDownload = startPhase("expression matrix download");
+  const bytes = await streamFetchBytes(
+    REMOTE_EXPR_URL,
+    LOCAL_EXPR_URL,
+    (pct, msg) => {
+      onProgress?.({ phase: "downloading", percent: pct, message: msg });
+    },
+    signal
+  );
+  endDownload({ bytes: bytes.byteLength });
 
   onProgress?.({ phase: "parsing", percent: 0, message: "Decoding expression matrix…" });
 
+  const endDecode = startPhase("expression matrix decode");
   let sparse: Map<string, SparseGene>;
   try {
     sparse = parseSparseExpression(bytes, (fraction) => {
@@ -206,12 +225,14 @@ async function loadExpressionMatrix(
         `Regenerate the split files with scripts/compress_dataset.py. Details: ${e}`
     );
   }
+  endDecode({ genes: sparse.size, peakHeapMB: Number(getPeakHeapMB().toFixed(1)) });
 
   const matrix = new SparseExpressionMatrix(sparse, cellIds);
   exprResult = matrix;
   onProgress?.({ phase: "done", percent: 100, message: "Expression matrix ready" });
   return matrix;
 }
+
 
 /** Try remote URL first, fall back to local */
 async function fetchJsonWithFallback(remoteUrl: string, localUrl: string): Promise<unknown> {
@@ -237,17 +258,21 @@ async function fetchJsonWithFallback(remoteUrl: string, localUrl: string): Promi
 async function streamFetchBytes(
   remoteUrl: string,
   localUrl: string,
-  onProgress: (pct: number, msg: string) => void
+  onProgress: (pct: number, msg: string) => void,
+  signal?: AbortSignal
 ): Promise<Uint8Array> {
   let response: Response | null = null;
 
   try {
-    const resp = await fetch(remoteUrl);
+    const resp = await fetch(remoteUrl, { signal });
     if (resp.ok) response = resp;
-  } catch { /* fall through */ }
+  } catch (e) {
+    if (signal?.aborted) throw new DOMException("Download cancelled", "AbortError");
+    /* fall through */
+  }
 
   if (!response) {
-    const resp = await fetch(localUrl);
+    const resp = await fetch(localUrl, { signal });
     if (!resp.ok) {
       throw new Error(
         `Could not load the expression matrix from either ${remoteUrl} or ${localUrl}`
@@ -260,63 +285,79 @@ async function streamFetchBytes(
   const reader = response.body?.getReader();
   if (!reader) throw new Error("Streaming downloads are not supported in this browser");
 
+  const abortHandler = () => { reader.cancel().catch(() => {}); };
+  signal?.addEventListener("abort", abortHandler);
+
+  const ensureLive = () => {
+    if (signal?.aborted) throw new DOMException("Download cancelled", "AbortError");
+  };
+
   const totalMb = contentLength > 0 ? ` / ${(contentLength / 1e6).toFixed(0)}` : "";
   let receivedBytes = 0;
 
   const report = () => {
+    trackHeap();
     const pct = contentLength > 0
       ? Math.min(99, Math.round((receivedBytes / contentLength) * 100))
       : 50;
+
     onProgress(pct, `Downloading expression… ${(receivedBytes / 1e6).toFixed(0)}${totalMb} MB`);
   };
 
-  // Fast path: single preallocated buffer (no second copy)
-  if (contentLength > 0) {
-    const buffer = new Uint8Array(contentLength);
-    let overflow: Uint8Array[] | null = null;
+  try {
+    // Fast path: single preallocated buffer (no second copy)
+    if (contentLength > 0) {
+      const buffer = new Uint8Array(contentLength);
+      let overflow: Uint8Array[] | null = null;
 
+      while (true) {
+        const { done, value } = await reader.read();
+        ensureLive();
+        if (done) break;
+        if (receivedBytes + value.length <= contentLength) {
+          buffer.set(value, receivedBytes);
+        } else {
+          // Server under-reported the size; keep the tail separately
+          (overflow ||= []).push(value);
+        }
+        receivedBytes += value.length;
+        report();
+      }
+
+      if (!overflow && receivedBytes === contentLength) return buffer;
+      if (!overflow) return buffer.subarray(0, receivedBytes);
+
+      const merged = new Uint8Array(receivedBytes);
+      merged.set(buffer.subarray(0, contentLength), 0);
+      let offset = contentLength;
+      for (const chunk of overflow) {
+        merged.set(chunk, offset);
+        offset += chunk.length;
+      }
+      return merged;
+    }
+
+    // Unknown length: collect chunks, then concatenate once
+    const chunks: Uint8Array[] = [];
     while (true) {
       const { done, value } = await reader.read();
+      ensureLive();
       if (done) break;
-      if (receivedBytes + value.length <= contentLength) {
-        buffer.set(value, receivedBytes);
-      } else {
-        // Server under-reported the size; keep the tail separately
-        (overflow ||= []).push(value);
-      }
+      chunks.push(value);
       receivedBytes += value.length;
       report();
     }
 
-    if (!overflow && receivedBytes === contentLength) return buffer;
-    if (!overflow) return buffer.subarray(0, receivedBytes);
-
-    const merged = new Uint8Array(receivedBytes);
-    merged.set(buffer.subarray(0, contentLength), 0);
-    let offset = contentLength;
-    for (const chunk of overflow) {
-      merged.set(chunk, offset);
+    const fullBuffer = new Uint8Array(receivedBytes);
+    let offset = 0;
+    for (const chunk of chunks) {
+      fullBuffer.set(chunk, offset);
       offset += chunk.length;
     }
-    return merged;
+    chunks.length = 0;
+    return fullBuffer;
+  } finally {
+    signal?.removeEventListener("abort", abortHandler);
   }
-
-  // Unknown length: collect chunks, then concatenate once
-  const chunks: Uint8Array[] = [];
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    chunks.push(value);
-    receivedBytes += value.length;
-    report();
-  }
-
-  const fullBuffer = new Uint8Array(receivedBytes);
-  let offset = 0;
-  for (const chunk of chunks) {
-    fullBuffer.set(chunk, offset);
-    offset += chunk.length;
-  }
-  chunks.length = 0;
-  return fullBuffer;
 }
+

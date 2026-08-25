@@ -16,6 +16,8 @@ interface ScatterPlotProps {
   cells: Cell[];
   expressionData?: Map<string, number>;
   selectedGene: string | null;
+  /** Gene(s) are absent from the loaded matrix — show an explicit "not detected" state */
+  expressionNotDetected?: boolean;
   pointSize: number;
   showClusters: boolean;
   showLabels: boolean;
@@ -104,6 +106,7 @@ export function ScatterPlot({
   cells,
   expressionData,
   selectedGene,
+  expressionNotDetected = false,
   pointSize,
   showClusters,
   showLabels,
@@ -628,6 +631,15 @@ export function ScatterPlot({
         </button>
       </div>
 
+      {/* Not-detected overlay */}
+      {expressionNotDetected && selectedGene && (
+        <div className="absolute inset-x-0 top-4 flex justify-center pointer-events-none">
+          <div className="bg-card/90 border border-border rounded-md px-3 py-1.5 text-xs text-muted-foreground">
+            <span className="font-mono text-foreground">{selectedGene}</span> not detected in this dataset
+          </div>
+        </div>
+      )}
+
       {/* Cell tooltip */}
       <CellTooltip
         cell={hoveredCell}
@@ -639,7 +651,9 @@ export function ScatterPlot({
             : undefined
         }
         geneName={selectedGene ?? undefined}
+        expressionNotDetected={expressionNotDetected}
       />
+
     </div>
   );
 }
