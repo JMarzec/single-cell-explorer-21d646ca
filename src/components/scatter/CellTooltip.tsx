@@ -53,7 +53,13 @@ export function CellTooltip({
         </div>
 
         {/* Gene expression if available */}
-        {geneName && expressionValue !== undefined && (
+        {geneName && expressionNotDetected && (
+          <div className="flex justify-between border-t border-border pt-1">
+            <span className="text-muted-foreground">{geneName}:</span>
+            <span className="font-medium text-muted-foreground">not detected</span>
+          </div>
+        )}
+        {geneName && !expressionNotDetected && expressionValue !== undefined && (
           <div className="flex justify-between border-t border-border pt-1">
             <span className="text-muted-foreground">{geneName}:</span>
             <span className="font-mono font-medium text-primary">
@@ -61,6 +67,7 @@ export function CellTooltip({
             </span>
           </div>
         )}
+
 
         {/* Metadata */}
         {Object.entries(cell.metadata).length > 0 && (
