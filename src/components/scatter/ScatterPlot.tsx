@@ -631,6 +631,15 @@ export function ScatterPlot({
         </button>
       </div>
 
+      {/* Not-detected overlay */}
+      {expressionNotDetected && selectedGene && (
+        <div className="absolute inset-x-0 top-4 flex justify-center pointer-events-none">
+          <div className="bg-card/90 border border-border rounded-md px-3 py-1.5 text-xs text-muted-foreground">
+            <span className="font-mono text-foreground">{selectedGene}</span> not detected in this dataset
+          </div>
+        </div>
+      )}
+
       {/* Cell tooltip */}
       <CellTooltip
         cell={hoveredCell}
@@ -642,7 +651,9 @@ export function ScatterPlot({
             : undefined
         }
         geneName={selectedGene ?? undefined}
+        expressionNotDetected={expressionNotDetected}
       />
+
     </div>
   );
 }
