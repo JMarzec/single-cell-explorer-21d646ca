@@ -599,6 +599,24 @@ const Index = () => {
                 onCellsSelected={handleCellsSelected}
               />
             </div>
+
+            {/* Gene Selection */}
+            <div
+              data-tour="gene-selection"
+              className={!exprReady && !remoteError ? "opacity-60 pointer-events-none" : undefined}
+              aria-busy={!exprReady && !remoteError}
+            >
+              <GeneSelectionPanel
+                genes={dataset.genes}
+                settings={settings}
+                onSettingsChange={handleSettingsChange}
+              />
+              {!exprReady && !remoteError && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Gene expression becomes available once the expression matrix finishes loading.
+                </p>
+              )}
+            </div>
             
             {/* Expression Level Legend */}
             {effectiveGeneLabel && !plotGeneUndetected && (
