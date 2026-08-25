@@ -112,26 +112,36 @@ const Index = () => {
   const [loadProgress, setLoadProgress] = useState<LoadProgress>({ phase: "downloading", percent: 0, message: "Initialising…" });
   const [exprProgress, setExprProgress] = useState<LoadProgress | null>(null);
   const [exprReady, setExprReady] = useState(false);
+  const [exprCancelled, setExprCancelled] = useState(false);
   const [remoteError, setRemoteError] = useState<string | null>(null);
   const [tourOpen, setTourOpen] = useState(false);
   const originalDatasetRef = useRef<SingleCellDataset>(defaultDataset);
+  const exprAbortRef = useRef<AbortController | null>(null);
+  const [exprAttempt, setExprAttempt] = useState(0);
 
   // Load the small core dataset first so the dashboard renders quickly,
-  // then stream the expression matrix in the background.
+  // then stream the expression matrix in the background (cancellable).
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
+    exprAbortRef.current = controller;
 
     fetchCoreDataset((p) => setLoadProgress(p))
       .then((core) => {
         if (cancelled) return;
-        setDataset(core);
+        setDataset((prev) => (prev.expression ? { ...core, expression: prev.expression } : core));
         originalDatasetRef.current = core;
         setIsLoadingRemote(false);
+        setExprCancelled(false);
         setExprProgress({ phase: "downloading", percent: 0, message: "Downloading expression matrix…" });
 
-        return fetchExpressionMatrix(core.cells.map((c) => c.id), (p) => {
-          if (!cancelled) setExprProgress(p);
-        }).then((expression) => {
+        return fetchExpressionMatrix(
+          core.cells.map((c) => c.id),
+          (p) => {
+            if (!cancelled) setExprProgress(p);
+          },
+          controller.signal
+        ).then((expression) => {
           if (cancelled) return;
           setDataset((prev) => ({ ...prev, expression }));
           originalDatasetRef.current = { ...originalDatasetRef.current, expression };
@@ -141,17 +151,37 @@ const Index = () => {
       })
       .catch((err) => {
         if (cancelled) return;
+        const aborted =
+          (err instanceof DOMException && err.name === "AbortError") ||
+          controller.signal.aborted;
+        setExprProgress(null);
+        setIsLoadingRemote(false);
+        if (aborted) {
+          setExprCancelled(true);
+          return;
+        }
         const msg = err instanceof Error ? err.message : String(err);
         console.error("Failed to load remote dataset:", msg);
         setRemoteError(msg);
-        setExprProgress(null);
-        setIsLoadingRemote(false);
       });
 
     return () => {
       cancelled = true;
     };
+  }, [exprAttempt]);
+
+  const handleCancelExpression = useCallback(() => {
+    exprAbortRef.current?.abort();
+    setExprProgress(null);
+    setExprCancelled(true);
   }, []);
+
+  const handleRetryExpression = useCallback(() => {
+    setExprCancelled(false);
+    setRemoteError(null);
+    setExprAttempt((n) => n + 1);
+  }, []);
+
 
 
   // Selected cells from lasso/rectangle selection
