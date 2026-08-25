@@ -522,40 +522,42 @@ const Index = () => {
             </div>
             
             {/* Annotation Legend */}
-            {(() => {
-              const cellCounts: Record<string, number> = {};
-              dataset.cells.forEach(cell => {
-                const val = annotationData.getCellValue(cell);
-                cellCounts[val] = (cellCounts[val] || 0) + 1;
-              });
-              return (
-                <div className="bg-card border border-border rounded-lg p-3">
-                  <h4 className="text-sm font-medium text-foreground mb-2">
-                    {selectedAnnotation.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                  </h4>
-                  <div className="max-h-32 overflow-y-auto">
-                    <div className="grid grid-cols-2 gap-1">
-                      {annotationData.values.slice(0, 20).map((value, idx) => (
-                        <div key={idx} className="flex items-center gap-2 text-xs">
-                          <div 
-                            className="w-3 h-3 rounded-full flex-shrink-0" 
-                            style={{ backgroundColor: annotationData.colorMap[value] }}
-                          />
-                          <span className="text-muted-foreground truncate">
-                            {value} ({cellCounts[value] || 0})
-                          </span>
-                        </div>
-                      ))}
-                      {annotationData.values.length > 20 && (
-                        <div className="text-xs text-muted-foreground col-span-2">
-                          +{annotationData.values.length - 20} more...
-                        </div>
-                      )}
+            <div className="mt-auto">
+              {(() => {
+                const cellCounts: Record<string, number> = {};
+                dataset.cells.forEach(cell => {
+                  const val = annotationData.getCellValue(cell);
+                  cellCounts[val] = (cellCounts[val] || 0) + 1;
+                });
+                return (
+                  <div className="bg-card border border-border rounded-lg p-3">
+                    <h4 className="text-sm font-medium text-foreground mb-2">
+                      {selectedAnnotation.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    </h4>
+                    <div className="max-h-32 overflow-y-auto">
+                      <div className="grid grid-cols-2 gap-1">
+                        {annotationData.values.slice(0, 20).map((value, idx) => (
+                          <div key={idx} className="flex items-center gap-2 text-xs">
+                            <div 
+                              className="w-3 h-3 rounded-full flex-shrink-0" 
+                              style={{ backgroundColor: annotationData.colorMap[value] }}
+                            />
+                            <span className="text-muted-foreground truncate">
+                              {value} ({cellCounts[value] || 0})
+                            </span>
+                          </div>
+                        ))}
+                        {annotationData.values.length > 20 && (
+                          <div className="text-xs text-muted-foreground col-span-2">
+                            +{annotationData.values.length - 20} more...
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })()}
+                );
+              })()}
+            </div>
           </div>
 
           {/* Right Plot - Gene Expression */}
