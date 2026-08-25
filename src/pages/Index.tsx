@@ -641,7 +641,7 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Filters, Gene Selection & Display Options */}
+        {/* Filters, Cluster Annotation & Display Options */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-4">
             <CellFilter
