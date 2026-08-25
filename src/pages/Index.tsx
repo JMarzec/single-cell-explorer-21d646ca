@@ -16,7 +16,7 @@ import { PseudotimeHeatmap } from "@/components/analysis/PseudotimeHeatmap";
 import { calculatePseudotime } from "@/components/analysis/TrajectoryAnalysis";
 
 import { generateDemoDataset } from "@/data/demoData";
-import { fetchRemoteDataset, LoadProgress } from "@/lib/datasetLoader";
+import { fetchCoreDataset, fetchExpressionMatrix, LoadProgress } from "@/lib/datasetLoader";
 import { getExpressionData, getMultiGeneExpression, getAveragedExpression, getAnnotationValues, getAnnotationColorMap, calculatePercentile } from "@/lib/expressionUtils";
 import { getPaletteGradientCSS } from "@/lib/colorPalettes";
 import { VisualizationSettings, SingleCellDataset, CellFilterState as CellFilterType, Cell, ClusterInfo, ColorPalette } from "@/types/singleCell";
@@ -365,6 +365,22 @@ const Index = () => {
           <p className="text-xs text-muted-foreground mt-1">
             Showing demo data instead. The remote file may be too large for your browser's memory.
           </p>
+        </div>
+      )}
+      {exprProgress && (
+        <div className="bg-primary/10 border-b border-primary/20 px-4 py-2">
+          <div className="container mx-auto flex items-center gap-3">
+            <p className="text-xs text-muted-foreground whitespace-nowrap">
+              {exprProgress.message}
+            </p>
+            <Progress
+              value={exprProgress.percent > 0 ? exprProgress.percent : undefined}
+              className="h-1.5 flex-1"
+            />
+            <p className="text-xs text-muted-foreground w-10 text-right">
+              {exprProgress.percent}%
+            </p>
+          </div>
         </div>
       )}
       <Header metadata={dataset.metadata} onStartTour={() => setTourOpen(true)} />
