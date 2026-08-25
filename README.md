@@ -22,7 +22,11 @@ An interactive web portal for exploring and visualizing single-cell RNA sequenci
 
 ### Data Handling
 - **Cell Filtering**: Subset cells by sample, cluster, or other metadata
-- **Demo Dataset**: Pre-loaded developmental heart data for exploration
+- **Bundled Dataset**: A pre-processed heart organoid dataset loads automatically (progressive loading with a cancellable progress indicator)
+- **Explicit "not detected" state**: Genes absent from the expression matrix are reported as not detected (zeroed plots, tooltips say "not detected") — values are never invented
+
+> Note: there is no in-app dataset upload. The portal ships with a fixed, pre-processed dataset; swapping datasets is a build-time step (see below).
+
 
 ## Getting Started
 
