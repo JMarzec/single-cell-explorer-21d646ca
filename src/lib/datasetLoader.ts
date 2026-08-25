@@ -304,53 +304,60 @@ async function streamFetchBytes(
     onProgress(pct, `Downloading expression… ${(receivedBytes / 1e6).toFixed(0)}${totalMb} MB`);
   };
 
-  // Fast path: single preallocated buffer (no second copy)
-  if (contentLength > 0) {
-    const buffer = new Uint8Array(contentLength);
-    let overflow: Uint8Array[] | null = null;
+  try {
+    // Fast path: single preallocated buffer (no second copy)
+    if (contentLength > 0) {
+      const buffer = new Uint8Array(contentLength);
+      let overflow: Uint8Array[] | null = null;
 
+      while (true) {
+        const { done, value } = await reader.read();
+        ensureLive();
+        if (done) break;
+        if (receivedBytes + value.length <= contentLength) {
+          buffer.set(value, receivedBytes);
+        } else {
+          // Server under-reported the size; keep the tail separately
+          (overflow ||= []).push(value);
+        }
+        receivedBytes += value.length;
+        report();
+      }
+
+      if (!overflow && receivedBytes === contentLength) return buffer;
+      if (!overflow) return buffer.subarray(0, receivedBytes);
+
+      const merged = new Uint8Array(receivedBytes);
+      merged.set(buffer.subarray(0, contentLength), 0);
+      let offset = contentLength;
+      for (const chunk of overflow) {
+        merged.set(chunk, offset);
+        offset += chunk.length;
+      }
+      return merged;
+    }
+
+    // Unknown length: collect chunks, then concatenate once
+    const chunks: Uint8Array[] = [];
     while (true) {
       const { done, value } = await reader.read();
+      ensureLive();
       if (done) break;
-      if (receivedBytes + value.length <= contentLength) {
-        buffer.set(value, receivedBytes);
-      } else {
-        // Server under-reported the size; keep the tail separately
-        (overflow ||= []).push(value);
-      }
+      chunks.push(value);
       receivedBytes += value.length;
       report();
     }
 
-    if (!overflow && receivedBytes === contentLength) return buffer;
-    if (!overflow) return buffer.subarray(0, receivedBytes);
-
-    const merged = new Uint8Array(receivedBytes);
-    merged.set(buffer.subarray(0, contentLength), 0);
-    let offset = contentLength;
-    for (const chunk of overflow) {
-      merged.set(chunk, offset);
+    const fullBuffer = new Uint8Array(receivedBytes);
+    let offset = 0;
+    for (const chunk of chunks) {
+      fullBuffer.set(chunk, offset);
       offset += chunk.length;
     }
-    return merged;
+    chunks.length = 0;
+    return fullBuffer;
+  } finally {
+    signal?.removeEventListener("abort", abortHandler);
   }
-
-  // Unknown length: collect chunks, then concatenate once
-  const chunks: Uint8Array[] = [];
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    chunks.push(value);
-    receivedBytes += value.length;
-    report();
-  }
-
-  const fullBuffer = new Uint8Array(receivedBytes);
-  let offset = 0;
-  for (const chunk of chunks) {
-    fullBuffer.set(chunk, offset);
-    offset += chunk.length;
-  }
-  chunks.length = 0;
-  return fullBuffer;
 }
+
