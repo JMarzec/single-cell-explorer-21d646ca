@@ -243,6 +243,24 @@ const Index = () => {
     return getMultiGeneExpression(dataset, genes);
   }, [settings.selectedGenes, dataset]);
 
+  // Genes that are absent from the loaded expression matrix ("not detected")
+  const undetectedGenes = useMemo(() => {
+    const genes = [
+      ...(settings.selectedGene ? [settings.selectedGene] : []),
+      ...(settings.selectedGenes || []),
+    ];
+    return getUndetectedGenes(dataset, Array.from(new Set(genes)));
+  }, [settings.selectedGene, settings.selectedGenes, dataset]);
+
+  const plotGeneUndetected = useMemo(() => {
+    if (settings.selectedGene) return isGeneUndetected(dataset, settings.selectedGene);
+    const genes = settings.selectedGenes || [];
+    if (!settings.showAveragedExpression || genes.length === 0) return false;
+    return getUndetectedGenes(dataset, genes).length === genes.length;
+  }, [settings.selectedGene, settings.selectedGenes, settings.showAveragedExpression, dataset]);
+
+
+
   const handleDatasetLoad = useCallback((newDataset: SingleCellDataset) => {
     setDataset(newDataset);
     originalDatasetRef.current = newDataset;
