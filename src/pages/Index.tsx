@@ -391,7 +391,9 @@ const Index = () => {
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-muted border-t-primary" />
         <div className="text-center space-y-2">
           <p className="text-foreground font-medium">Loading dataset…</p>
-          <p className="text-muted-foreground text-sm">{loadProgress.message}</p>
+          <p className="text-muted-foreground text-sm" role="status" aria-live="polite">
+            {loadProgress.message}
+          </p>
         </div>
         <div className="w-64">
           <Progress value={showPercent ? loadProgress.percent : undefined} className="h-2" />
@@ -399,6 +401,12 @@ const Index = () => {
             <p className="text-xs text-muted-foreground text-center mt-1">{loadProgress.percent}%</p>
           )}
         </div>
+        <button
+          onClick={handleCancelExpression}
+          className="text-xs text-muted-foreground underline hover:text-foreground"
+        >
+          Cancel download
+        </button>
       </div>
     );
   }
@@ -413,12 +421,22 @@ const Index = () => {
           <p className="text-xs text-muted-foreground mt-1">
             Showing demo data instead. The remote file may be too large for your browser's memory.
           </p>
+          <button
+            onClick={handleRetryExpression}
+            className="mt-2 text-xs font-medium text-primary underline hover:no-underline"
+          >
+            Retry
+          </button>
         </div>
       )}
       {exprProgress && (
         <div className="bg-primary/10 border-b border-primary/20 px-4 py-2">
           <div className="container mx-auto flex items-center gap-3">
-            <p className="text-xs text-muted-foreground whitespace-nowrap">
+            <p
+              className="text-xs text-muted-foreground whitespace-nowrap"
+              role="status"
+              aria-live="polite"
+            >
               {exprProgress.message}
             </p>
             <Progress
@@ -428,9 +446,31 @@ const Index = () => {
             <p className="text-xs text-muted-foreground w-10 text-right">
               {exprProgress.percent}%
             </p>
+            <button
+              onClick={handleCancelExpression}
+              className="text-xs text-muted-foreground underline hover:text-foreground whitespace-nowrap"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}
+      {exprCancelled && !exprReady && (
+        <div className="bg-muted border-b border-border px-4 py-2">
+          <div className="container mx-auto flex items-center justify-center gap-3">
+            <p className="text-xs text-muted-foreground">
+              Expression matrix download cancelled — gene expression features are unavailable.
+            </p>
+            <button
+              onClick={handleRetryExpression}
+              className="text-xs font-medium text-primary underline hover:no-underline"
+            >
+              Resume download
+            </button>
+          </div>
+        </div>
+      )}
+
       <Header metadata={dataset.metadata} onStartTour={() => setTourOpen(true)} />
       <ProductTour steps={tourSteps} isOpen={tourOpen} onClose={() => setTourOpen(false)} />
 
