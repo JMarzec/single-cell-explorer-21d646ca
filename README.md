@@ -51,9 +51,20 @@ The app will be available at `http://localhost:5173`
 
 ## Data Format
 
-### Uploading Custom Data
+### Swapping in your own dataset (build-time)
 
-Export your Seurat or Scanpy object to JSON using the provided R template script. The expected format:
+There is no upload UI in the app. To ship a different dataset, export your Seurat/Scanpy
+object to the JSON format below, then split and compress it for the browser:
+
+```bash
+python scripts/compress_dataset.py my_dataset.json public/
+# -> public/dataset_core.json (small, loaded first)
+# -> public/dataset_expression.msgpack (sparse expression, streamed in background)
+```
+
+Update the URLs at the top of `src/lib/datasetLoader.ts` if you host the files elsewhere.
+The expected input format:
+
 
 ```json
 {
