@@ -258,17 +258,21 @@ async function fetchJsonWithFallback(remoteUrl: string, localUrl: string): Promi
 async function streamFetchBytes(
   remoteUrl: string,
   localUrl: string,
-  onProgress: (pct: number, msg: string) => void
+  onProgress: (pct: number, msg: string) => void,
+  signal?: AbortSignal
 ): Promise<Uint8Array> {
   let response: Response | null = null;
 
   try {
-    const resp = await fetch(remoteUrl);
+    const resp = await fetch(remoteUrl, { signal });
     if (resp.ok) response = resp;
-  } catch { /* fall through */ }
+  } catch (e) {
+    if (signal?.aborted) throw new DOMException("Download cancelled", "AbortError");
+    /* fall through */
+  }
 
   if (!response) {
-    const resp = await fetch(localUrl);
+    const resp = await fetch(localUrl, { signal });
     if (!resp.ok) {
       throw new Error(
         `Could not load the expression matrix from either ${remoteUrl} or ${localUrl}`
@@ -281,13 +285,22 @@ async function streamFetchBytes(
   const reader = response.body?.getReader();
   if (!reader) throw new Error("Streaming downloads are not supported in this browser");
 
+  const abortHandler = () => { reader.cancel().catch(() => {}); };
+  signal?.addEventListener("abort", abortHandler);
+
+  const ensureLive = () => {
+    if (signal?.aborted) throw new DOMException("Download cancelled", "AbortError");
+  };
+
   const totalMb = contentLength > 0 ? ` / ${(contentLength / 1e6).toFixed(0)}` : "";
   let receivedBytes = 0;
 
   const report = () => {
+    trackHeap();
     const pct = contentLength > 0
       ? Math.min(99, Math.round((receivedBytes / contentLength) * 100))
       : 50;
+
     onProgress(pct, `Downloading expression… ${(receivedBytes / 1e6).toFixed(0)}${totalMb} MB`);
   };
 
