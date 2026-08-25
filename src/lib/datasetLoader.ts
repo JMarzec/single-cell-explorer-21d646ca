@@ -1,5 +1,5 @@
 import { ExpressionMatrix, SingleCellDataset } from "@/types/singleCell";
-import { parseSparseExpression } from "@/lib/msgpackSparse";
+import { parseSparseExpression, SparseGene } from "@/lib/msgpackSparse";
 import { SparseExpressionMatrix, matrixFromRecord } from "@/lib/expressionMatrix";
 
 /**
@@ -191,7 +191,7 @@ async function loadExpressionMatrix(
 
   onProgress?.({ phase: "parsing", percent: 0, message: "Decoding expression matrix…" });
 
-  let sparse: Map<string, ReturnType<typeof parseSparseExpression> extends Map<string, infer V> ? V : never>;
+  let sparse: Map<string, SparseGene>;
   try {
     sparse = parseSparseExpression(bytes, (fraction) => {
       onProgress?.({
