@@ -17,7 +17,7 @@ import { calculatePseudotime } from "@/components/analysis/TrajectoryAnalysis";
 
 import { generateDemoDataset } from "@/data/demoData";
 import { fetchCoreDataset, fetchExpressionMatrix, LoadProgress } from "@/lib/datasetLoader";
-import { getExpressionData, getMultiGeneExpression, getAveragedExpression, getAnnotationValues, getAnnotationColorMap, calculatePercentile } from "@/lib/expressionUtils";
+import { getExpressionData, getMultiGeneExpression, getAveragedExpression, getAnnotationValues, getAnnotationColorMap, calculatePercentile, getUndetectedGenes, isGeneUndetected } from "@/lib/expressionUtils";
 import { getPaletteGradientCSS } from "@/lib/colorPalettes";
 import { VisualizationSettings, SingleCellDataset, CellFilterState as CellFilterType, Cell, ClusterInfo, ColorPalette } from "@/types/singleCell";
 import { Switch } from "@/components/ui/switch";
