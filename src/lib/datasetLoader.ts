@@ -1,6 +1,7 @@
 import { ExpressionMatrix, SingleCellDataset } from "@/types/singleCell";
 import { parseSparseExpression, SparseGene } from "@/lib/msgpackSparse";
 import { SparseExpressionMatrix, matrixFromRecord } from "@/lib/expressionMatrix";
+import { startPhase, getPeakHeapMB, trackHeap } from "@/lib/perf";
 
 /**
  * Remote URLs for the split compressed dataset files.
