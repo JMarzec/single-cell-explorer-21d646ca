@@ -489,8 +489,8 @@ const Index = () => {
         {/* Dual Plot Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 items-stretch">
           {/* Left Plot - Metadata Annotation */}
-          <div className="flex flex-col space-y-4 h-full" data-tour="metadata-plot">
-            <div className="flex items-center justify-between p-3 bg-card border border-border rounded-lg">
+          <div className="flex flex-col gap-4 h-full" data-tour="metadata-plot">
+            <div className="flex items-center justify-between p-3 min-h-[66px] bg-card border border-border rounded-lg">
               <h2 className="font-semibold text-foreground text-base">Metadata Annotation</h2>
               <Select value={selectedAnnotation} onValueChange={setSelectedAnnotation}>
                 <SelectTrigger className="w-40">
@@ -506,7 +506,7 @@ const Index = () => {
               </Select>
             </div>
             
-            <div className="flex-1 min-h-[400px]">
+            <div className="h-[450px]">
               <ScatterPlot
                 cells={dataset.cells}
                 selectedGene={null}
@@ -522,45 +522,47 @@ const Index = () => {
             </div>
             
             {/* Annotation Legend */}
-            {(() => {
-              const cellCounts: Record<string, number> = {};
-              dataset.cells.forEach(cell => {
-                const val = annotationData.getCellValue(cell);
-                cellCounts[val] = (cellCounts[val] || 0) + 1;
-              });
-              return (
-                <div className="bg-card border border-border rounded-lg p-3">
-                  <h4 className="text-sm font-medium text-foreground mb-2">
-                    {selectedAnnotation.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                  </h4>
-                  <div className="max-h-32 overflow-y-auto">
-                    <div className="grid grid-cols-2 gap-1">
-                      {annotationData.values.slice(0, 20).map((value, idx) => (
-                        <div key={idx} className="flex items-center gap-2 text-xs">
-                          <div 
-                            className="w-3 h-3 rounded-full flex-shrink-0" 
-                            style={{ backgroundColor: annotationData.colorMap[value] }}
-                          />
-                          <span className="text-muted-foreground truncate">
-                            {value} ({cellCounts[value] || 0})
-                          </span>
-                        </div>
-                      ))}
-                      {annotationData.values.length > 20 && (
-                        <div className="text-xs text-muted-foreground col-span-2">
-                          +{annotationData.values.length - 20} more...
-                        </div>
-                      )}
+            <div className="mt-auto">
+              {(() => {
+                const cellCounts: Record<string, number> = {};
+                dataset.cells.forEach(cell => {
+                  const val = annotationData.getCellValue(cell);
+                  cellCounts[val] = (cellCounts[val] || 0) + 1;
+                });
+                return (
+                  <div className="bg-card border border-border rounded-lg p-3">
+                    <h4 className="text-sm font-medium text-foreground mb-2">
+                      {selectedAnnotation.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    </h4>
+                    <div className="max-h-32 overflow-y-auto">
+                      <div className="grid grid-cols-2 gap-1">
+                        {annotationData.values.slice(0, 20).map((value, idx) => (
+                          <div key={idx} className="flex items-center gap-2 text-xs">
+                            <div 
+                              className="w-3 h-3 rounded-full flex-shrink-0" 
+                              style={{ backgroundColor: annotationData.colorMap[value] }}
+                            />
+                            <span className="text-muted-foreground truncate">
+                              {value} ({cellCounts[value] || 0})
+                            </span>
+                          </div>
+                        ))}
+                        {annotationData.values.length > 20 && (
+                          <div className="text-xs text-muted-foreground col-span-2">
+                            +{annotationData.values.length - 20} more...
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })()}
+                );
+              })()}
+            </div>
           </div>
 
           {/* Right Plot - Gene Expression */}
-          <div className="flex flex-col space-y-4 h-full" data-tour="expression-plot">
-            <div className="p-3 bg-card border border-border rounded-lg">
+          <div className="flex flex-col gap-4 h-full" data-tour="expression-plot">
+            <div className="p-3 min-h-[66px] bg-card border border-border rounded-lg">
               <h2 className="font-semibold text-foreground text-base">
                 Gene Expression
                 {effectiveGeneLabel && (
@@ -579,7 +581,7 @@ const Index = () => {
               )}
             </div>
             
-            <div className="flex-1 min-h-[400px]">
+            <div className="h-[450px]">
               <ScatterPlot
                 cells={dataset.cells}
                 expressionData={expressionData}
@@ -600,43 +602,46 @@ const Index = () => {
               />
             </div>
 
-            {/* Gene Selection */}
-            <div
-              data-tour="gene-selection"
-              className={!exprReady && !remoteError ? "opacity-60 pointer-events-none" : undefined}
-              aria-busy={!exprReady && !remoteError}
-            >
-              <GeneSelectionPanel
-                genes={dataset.genes}
-                settings={settings}
-                onSettingsChange={handleSettingsChange}
-              />
-              {!exprReady && !remoteError && (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Gene expression becomes available once the expression matrix finishes loading.
-                </p>
-              )}
-            </div>
-            
-            {/* Expression Level Legend */}
-            {effectiveGeneLabel && !plotGeneUndetected && (
-              <div className="bg-card border border-border rounded-lg p-3">
-                <h4 className="text-sm font-medium text-foreground mb-2">Expression Level</h4>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">Low</span>
-                  <div
-                    className="flex-1 h-3 rounded"
-                    style={{ background: getPaletteGradientCSS(settings.colorPalette) }}
-                  />
-                  <span className="text-xs text-muted-foreground">High</span>
-                </div>
-                {settings.usePercentileClipping && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Clipped to {settings.percentileLow}–{settings.percentileHigh} percentile
+            {/* Gene Selection + Expression Level Legend */}
+            <div className="mt-auto space-y-4">
+              {/* Gene Selection */}
+              <div
+                data-tour="gene-selection"
+                className={!exprReady && !remoteError ? "opacity-60 pointer-events-none" : undefined}
+                aria-busy={!exprReady && !remoteError}
+              >
+                <GeneSelectionPanel
+                  genes={dataset.genes}
+                  settings={settings}
+                  onSettingsChange={handleSettingsChange}
+                />
+                {!exprReady && !remoteError && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Gene expression becomes available once the expression matrix finishes loading.
                   </p>
                 )}
               </div>
-            )}
+              
+              {/* Expression Level Legend */}
+              {effectiveGeneLabel && !plotGeneUndetected && (
+                <div className="bg-card border border-border rounded-lg p-3">
+                  <h4 className="text-sm font-medium text-foreground mb-2">Expression Level</h4>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Low</span>
+                    <div
+                      className="flex-1 h-3 rounded"
+                      style={{ background: getPaletteGradientCSS(settings.colorPalette) }}
+                    />
+                    <span className="text-xs text-muted-foreground">High</span>
+                  </div>
+                  {settings.usePercentileClipping && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Clipped to {settings.percentileLow}–{settings.percentileHigh} percentile
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
 
           </div>
         </div>
