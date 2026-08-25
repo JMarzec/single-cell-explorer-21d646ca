@@ -599,6 +599,24 @@ const Index = () => {
                 onCellsSelected={handleCellsSelected}
               />
             </div>
+
+            {/* Gene Selection */}
+            <div
+              data-tour="gene-selection"
+              className={!exprReady && !remoteError ? "opacity-60 pointer-events-none" : undefined}
+              aria-busy={!exprReady && !remoteError}
+            >
+              <GeneSelectionPanel
+                genes={dataset.genes}
+                settings={settings}
+                onSettingsChange={handleSettingsChange}
+              />
+              {!exprReady && !remoteError && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Gene expression becomes available once the expression matrix finishes loading.
+                </p>
+              )}
+            </div>
             
             {/* Expression Level Legend */}
             {effectiveGeneLabel && !plotGeneUndetected && (
@@ -623,7 +641,7 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Filters, Gene Selection & Display Options */}
+        {/* Filters, Cluster Annotation & Display Options */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-4">
             <CellFilter
@@ -632,22 +650,6 @@ const Index = () => {
               filter={settings.cellFilter}
               onFilterChange={(filter) => handleSettingsChange({ cellFilter: filter })}
             />
-            <div
-              data-tour="gene-selection"
-              className={!exprReady && !remoteError ? "opacity-60 pointer-events-none" : undefined}
-              aria-busy={!exprReady && !remoteError}
-            >
-              <GeneSelectionPanel
-                genes={dataset.genes}
-                settings={settings}
-                onSettingsChange={handleSettingsChange}
-              />
-              {!exprReady && !remoteError && (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Gene expression becomes available once the expression matrix finishes loading.
-                </p>
-              )}
-            </div>
 
             <ClusterAnnotationTool
               clusters={dataset.clusters}
