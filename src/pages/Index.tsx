@@ -602,43 +602,46 @@ const Index = () => {
               />
             </div>
 
-            {/* Gene Selection */}
-            <div
-              data-tour="gene-selection"
-              className={!exprReady && !remoteError ? "opacity-60 pointer-events-none" : undefined}
-              aria-busy={!exprReady && !remoteError}
-            >
-              <GeneSelectionPanel
-                genes={dataset.genes}
-                settings={settings}
-                onSettingsChange={handleSettingsChange}
-              />
-              {!exprReady && !remoteError && (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Gene expression becomes available once the expression matrix finishes loading.
-                </p>
-              )}
-            </div>
-            
-            {/* Expression Level Legend */}
-            {effectiveGeneLabel && !plotGeneUndetected && (
-              <div className="bg-card border border-border rounded-lg p-3">
-                <h4 className="text-sm font-medium text-foreground mb-2">Expression Level</h4>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">Low</span>
-                  <div
-                    className="flex-1 h-3 rounded"
-                    style={{ background: getPaletteGradientCSS(settings.colorPalette) }}
-                  />
-                  <span className="text-xs text-muted-foreground">High</span>
-                </div>
-                {settings.usePercentileClipping && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Clipped to {settings.percentileLow}–{settings.percentileHigh} percentile
+            {/* Gene Selection + Expression Level Legend */}
+            <div className="mt-auto space-y-4">
+              {/* Gene Selection */}
+              <div
+                data-tour="gene-selection"
+                className={!exprReady && !remoteError ? "opacity-60 pointer-events-none" : undefined}
+                aria-busy={!exprReady && !remoteError}
+              >
+                <GeneSelectionPanel
+                  genes={dataset.genes}
+                  settings={settings}
+                  onSettingsChange={handleSettingsChange}
+                />
+                {!exprReady && !remoteError && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Gene expression becomes available once the expression matrix finishes loading.
                   </p>
                 )}
               </div>
-            )}
+              
+              {/* Expression Level Legend */}
+              {effectiveGeneLabel && !plotGeneUndetected && (
+                <div className="bg-card border border-border rounded-lg p-3">
+                  <h4 className="text-sm font-medium text-foreground mb-2">Expression Level</h4>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Low</span>
+                    <div
+                      className="flex-1 h-3 rounded"
+                      style={{ background: getPaletteGradientCSS(settings.colorPalette) }}
+                    />
+                    <span className="text-xs text-muted-foreground">High</span>
+                  </div>
+                  {settings.usePercentileClipping && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Clipped to {settings.percentileLow}–{settings.percentileHigh} percentile
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
 
           </div>
         </div>
