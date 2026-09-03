@@ -374,12 +374,14 @@ async function loadExpressionMatrix(
 
 /** Fallback path for browsers without module workers. */
 async function loadExpressionOnMainThread(
+  exprUrl: string,
+  localExprUrl: string | undefined,
   onProgress?: (p: LoadProgress) => void,
   signal?: AbortSignal
 ): Promise<Map<string, SparseGene>> {
   const bytes = await streamFetchBytes(
-    REMOTE_EXPR_URL,
-    LOCAL_EXPR_URL,
+    exprUrl,
+    localExprUrl,
     (pct, msg) => {
       trackHeap();
       onProgress?.({ phase: "downloading", percent: pct, message: msg });
