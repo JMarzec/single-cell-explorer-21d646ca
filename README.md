@@ -62,8 +62,11 @@ python scripts/compress_dataset.py my_dataset.json public/
 # -> public/dataset_expression.msgpack (sparse expression, streamed in background)
 ```
 
-Update the URLs at the top of `src/lib/datasetLoader.ts` if you host the files elsewhere.
+Set the URLs in `src/lib/datasetConfig.ts` if you host the files elsewhere. Both files are
+downloaded and decoded in a Web Worker (`src/workers/datasetWorker.ts`) with a progress bar,
+so the dashboard stays responsive. Full step-by-step guide: [DATASET.md](./DATASET.md).
 The expected input format:
+
 
 
 ```json
