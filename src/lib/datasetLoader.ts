@@ -2,26 +2,21 @@ import { ExpressionMatrix, SingleCellDataset } from "@/types/singleCell";
 import { parseSparseExpression, SparseGene } from "@/lib/msgpackSparse";
 import { SparseExpressionMatrix, matrixFromRecord } from "@/lib/expressionMatrix";
 import { startPhase, getPeakHeapMB, trackHeap } from "@/lib/perf";
-
-/**
- * Remote URLs for the split compressed dataset files.
- * These are served from GitHub (media.* for LFS-backed binaries) with CORS support.
- * Update these URLs if you move the files to a different host.
- */
-const REMOTE_CORE_URL =
-  "https://raw.githubusercontent.com/JMarzec/single-cell-explorer-21d646ca/main/public/dataset_core.json";
-const REMOTE_EXPR_URL =
-  "https://media.githubusercontent.com/media/JMarzec/single-cell-explorer-21d646ca/main/public/dataset_expression.msgpack";
-
-/** Local paths (served from public/ in dev and production) */
-const LOCAL_CORE_URL = "/dataset_core.json";
-const LOCAL_EXPR_URL = "/dataset_expression.msgpack";
+import {
+  REMOTE_CORE_URL,
+  REMOTE_EXPR_URL,
+  LOCAL_CORE_URL,
+  LOCAL_EXPR_URL,
+} from "@/lib/datasetConfig";
+import { fetchJsonWithFallback, streamFetchBytes } from "@/lib/fetchStream";
+import type { WorkerRequest, WorkerResponse } from "@/workers/datasetWorker";
 
 export interface LoadProgress {
   phase: "downloading" | "parsing" | "done" | "error";
   percent: number;
   message: string;
 }
+
 
 export function normalizeDataset(data: unknown): SingleCellDataset {
   const obj = data as Record<string, unknown>;
