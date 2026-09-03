@@ -168,6 +168,7 @@ const Index = () => {
         const msg = err instanceof Error ? err.message : String(err);
         console.error("Failed to load remote dataset:", msg);
         setRemoteError(msg);
+        setErrorScope(coreLoadedRef.current ? "expression" : "core");
       });
 
     return () => {
@@ -184,8 +185,10 @@ const Index = () => {
   const handleRetryExpression = useCallback(() => {
     setExprCancelled(false);
     setRemoteError(null);
+    setErrorScope(null);
     setExprAttempt((n) => n + 1);
   }, []);
+
 
 
 
