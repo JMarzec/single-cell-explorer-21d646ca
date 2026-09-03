@@ -35,7 +35,7 @@ export async function fetchJsonWithFallback(
  */
 export async function streamFetchBytes(
   remoteUrl: string,
-  localUrl: string,
+  localUrl: string | undefined,
   onProgress: (pct: number, msg: string) => void,
   signal?: AbortSignal
 ): Promise<Uint8Array> {
@@ -50,6 +50,9 @@ export async function streamFetchBytes(
   }
 
   if (!response) {
+    if (!localUrl) {
+      throw new Error(`Could not load the expression matrix from ${remoteUrl}`);
+    }
     const resp = await fetch(localUrl, { signal });
     if (!resp.ok) {
       throw new Error(
