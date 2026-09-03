@@ -25,7 +25,9 @@ An interactive web portal for exploring and visualizing single-cell RNA sequenci
 - **Bundled Dataset**: A pre-processed heart organoid dataset loads automatically (progressive loading with a cancellable progress indicator)
 - **Explicit "not detected" state**: Genes absent from the expression matrix are reported as not detected (zeroed plots, tooltips say "not detected") — values are never invented
 
-> Note: there is no in-app dataset upload. The portal ships with a fixed, pre-processed dataset; swapping datasets is a build-time step (see below).
+> Datasets can be swapped at runtime on the **/dataset-swap** page: upload a Seurat/Scanpy JSON
+> (parsed in your browser, session-only) or register hosted `dataset_core.json` /
+> `dataset_expression.msgpack` URLs. Changing the *default* dataset is still a build-time edit.
 
 
 ## Getting Started
