@@ -416,10 +416,10 @@ const Index = () => {
       {remoteError && (
         <div className="bg-destructive/10 border-b border-destructive/30 px-4 py-3 text-center">
           <p className="text-sm text-destructive font-medium">
-            ⚠ Failed to load remote dataset: {remoteError}
+            ⚠ Failed to load the expression matrix: {remoteError}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            Showing demo data instead. The remote file may be too large for your browser's memory.
+            Cells and annotations are shown from the real dataset, but gene expression is unavailable — no expression values are displayed.
           </p>
           <button
             onClick={handleRetryExpression}

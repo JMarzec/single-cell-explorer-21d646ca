@@ -169,6 +169,7 @@ export function generateDemoDataset(cellCount: number = 15000): SingleCellDatase
     clusters,
     differentialExpression: generateDifferentialExpression(),
     annotationOptions: ["cell_type", "sample"],
+    syntheticExpression: true,
   };
 }
 
