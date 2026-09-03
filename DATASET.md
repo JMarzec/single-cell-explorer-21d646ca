@@ -89,7 +89,22 @@ the expression bar keeps counting MB in the background and can be cancelled/resu
 
 ## Step 4 — Point the app at your files
 
-Edit **`src/lib/datasetConfig.ts`** — the only place URLs live:
+### Option A (no code): the **Dataset Swap** page
+
+Open **/dataset-swap** (the "Dataset" button in the header) and either:
+
+- **Upload a dataset JSON** — drop the single JSON from Step 1 straight in. It is parsed in
+  your browser (nothing is uploaded to a server) and used for the rest of the session.
+  Best for files up to a few hundred MB.
+- **Add dataset by URL** — paste the hosted `dataset_core.json` and
+  `dataset_expression.msgpack` URLs from Step 2. Saved in your browser and remembered
+  across reloads.
+
+Then pick it in the list and press **Load this dataset**. The explorer swaps over immediately.
+
+### Option B (build-time default): `src/lib/datasetConfig.ts`
+
+To change the dataset everyone sees by default, edit the URLs there:
 
 ```ts
 export const REMOTE_CORE_URL = "https://.../dataset_core.json";
