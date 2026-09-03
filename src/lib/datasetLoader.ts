@@ -3,11 +3,11 @@ import { parseSparseExpression, SparseGene } from "@/lib/msgpackSparse";
 import { SparseExpressionMatrix, matrixFromRecord } from "@/lib/expressionMatrix";
 import { startPhase, getPeakHeapMB, trackHeap } from "@/lib/perf";
 import {
-  REMOTE_CORE_URL,
-  REMOTE_EXPR_URL,
-  LOCAL_CORE_URL,
-  LOCAL_EXPR_URL,
-} from "@/lib/datasetConfig";
+  getActiveSource,
+  getEffectiveSourceId,
+  getUploadedDataset,
+  BUILT_IN_SOURCE,
+} from "@/lib/datasetRegistry";
 import { fetchJsonWithFallback, streamFetchBytes } from "@/lib/fetchStream";
 import type { WorkerRequest, WorkerResponse } from "@/workers/datasetWorker";
 
