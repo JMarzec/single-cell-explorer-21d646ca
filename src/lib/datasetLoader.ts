@@ -160,6 +160,71 @@ export async function fetchRemoteDataset(
 }
 
 // ---------------------------------------------------------------------------
+// Worker plumbing
+// ---------------------------------------------------------------------------
+/**
+ * Runs one worker request (core or expression) and resolves with the worker's
+ * terminal message. The worker is created per request and terminated after,
+ * so cancelling a huge download frees its memory immediately.
+ */
+function runInWorker(
+  request: WorkerRequest,
+  onProgress?: (p: LoadProgress) => void,
+  signal?: AbortSignal
+): Promise<Extract<WorkerResponse, { type: "core-done" | "expression-done" }>> {
+  return new Promise((resolve, reject) => {
+    let worker: Worker;
+    try {
+      worker = new Worker(new URL("../workers/datasetWorker.ts", import.meta.url), {
+        type: "module",
+      });
+    } catch (e) {
+      reject(e);
+      return;
+    }
+
+    const cleanup = () => {
+      signal?.removeEventListener("abort", onAbort);
+      worker.terminate();
+    };
+
+    function onAbort() {
+      cleanup();
+      reject(new DOMException("Download cancelled", "AbortError"));
+    }
+
+    if (signal?.aborted) {
+      onAbort();
+      return;
+    }
+    signal?.addEventListener("abort", onAbort);
+
+    worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
+      const msg = event.data;
+      if (msg.type === "progress") {
+        trackHeap();
+        onProgress?.({ phase: msg.phase, percent: msg.percent, message: msg.message });
+        return;
+      }
+      if (msg.type === "error") {
+        cleanup();
+        reject(new Error(msg.message));
+        return;
+      }
+      cleanup();
+      resolve(msg);
+    };
+
+    worker.onerror = (event) => {
+      cleanup();
+      reject(new Error(event.message || "Dataset worker failed"));
+    };
+
+    worker.postMessage(request);
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Core dataset
 // ---------------------------------------------------------------------------
 async function loadCoreDataset(
@@ -168,7 +233,18 @@ async function loadCoreDataset(
   onProgress?.({ phase: "downloading", percent: 0, message: "Loading core data…" });
   const endPhase = startPhase("core dataset load");
 
-  const coreData = await fetchJsonWithFallback(REMOTE_CORE_URL, LOCAL_CORE_URL);
+  let coreData: unknown;
+  try {
+    const msg = await runInWorker({ type: "core" }, onProgress);
+    if (msg.type !== "core-done") throw new Error("Unexpected worker response");
+    coreData = msg.data;
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") throw e;
+    // Workers unavailable (or blocked): fall back to the main thread.
+    console.warn("Dataset worker unavailable, loading core data on main thread:", e);
+    coreData = await fetchJsonWithFallback(REMOTE_CORE_URL, LOCAL_CORE_URL);
+  }
+
   const dataset = normalizeDataset(coreData);
   coreResult = dataset;
 
@@ -191,23 +267,53 @@ async function loadExpressionMatrix(
     message: "Downloading expression matrix…",
   });
 
-  const endDownload = startPhase("expression matrix download");
+  const endPhase = startPhase("expression matrix (worker)");
+  let sparse: Map<string, SparseGene>;
+
+  try {
+    const msg = await runInWorker({ type: "expression" }, onProgress, signal);
+    if (msg.type !== "expression-done") throw new Error("Unexpected worker response");
+    sparse = new Map<string, SparseGene>();
+    for (let i = 0; i < msg.genes.length; i++) {
+      sparse.set(msg.genes[i], { indices: msg.indices[i], values: msg.values[i] });
+    }
+    endPhase({
+      genes: sparse.size,
+      bytes: msg.bytes,
+      decodeMs: Math.round(msg.decodeMs),
+      peakHeapMB: Number(getPeakHeapMB().toFixed(1)),
+    });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") throw e;
+    console.warn("Dataset worker unavailable, decoding expression on main thread:", e);
+    sparse = await loadExpressionOnMainThread(onProgress, signal);
+    endPhase({ genes: sparse.size, peakHeapMB: Number(getPeakHeapMB().toFixed(1)) });
+  }
+
+  const matrix = new SparseExpressionMatrix(sparse, cellIds);
+  exprResult = matrix;
+  onProgress?.({ phase: "done", percent: 100, message: "Expression matrix ready" });
+  return matrix;
+}
+
+/** Fallback path for browsers without module workers. */
+async function loadExpressionOnMainThread(
+  onProgress?: (p: LoadProgress) => void,
+  signal?: AbortSignal
+): Promise<Map<string, SparseGene>> {
   const bytes = await streamFetchBytes(
     REMOTE_EXPR_URL,
     LOCAL_EXPR_URL,
     (pct, msg) => {
+      trackHeap();
       onProgress?.({ phase: "downloading", percent: pct, message: msg });
     },
     signal
   );
-  endDownload({ bytes: bytes.byteLength });
 
   onProgress?.({ phase: "parsing", percent: 0, message: "Decoding expression matrix…" });
-
-  const endDecode = startPhase("expression matrix decode");
-  let sparse: Map<string, SparseGene>;
   try {
-    sparse = parseSparseExpression(bytes, (fraction) => {
+    return parseSparseExpression(bytes, (fraction) => {
       onProgress?.({
         phase: "parsing",
         percent: Math.round(fraction * 100),
@@ -220,139 +326,4 @@ async function loadExpressionMatrix(
         `Regenerate the split files with scripts/compress_dataset.py. Details: ${e}`
     );
   }
-  endDecode({ genes: sparse.size, peakHeapMB: Number(getPeakHeapMB().toFixed(1)) });
-
-  const matrix = new SparseExpressionMatrix(sparse, cellIds);
-  exprResult = matrix;
-  onProgress?.({ phase: "done", percent: 100, message: "Expression matrix ready" });
-  return matrix;
 }
-
-
-/** Try remote URL first, fall back to local */
-async function fetchJsonWithFallback(remoteUrl: string, localUrl: string): Promise<unknown> {
-  try {
-    const resp = await fetch(remoteUrl);
-    if (resp.ok) return await resp.json();
-  } catch { /* fall through */ }
-
-  const resp = await fetch(localUrl);
-  if (!resp.ok) {
-    throw new Error(
-      `Could not load the core dataset from either ${remoteUrl} or ${localUrl}`
-    );
-  }
-  return resp.json();
-}
-
-/**
- * Stream-fetch binary data with progress, trying remote then local.
- * Writes directly into a single preallocated buffer when the server reports a
- * content length, avoiding a second full copy of the payload.
- */
-async function streamFetchBytes(
-  remoteUrl: string,
-  localUrl: string,
-  onProgress: (pct: number, msg: string) => void,
-  signal?: AbortSignal
-): Promise<Uint8Array> {
-  let response: Response | null = null;
-
-  try {
-    const resp = await fetch(remoteUrl, { signal });
-    if (resp.ok) response = resp;
-  } catch (e) {
-    if (signal?.aborted) throw new DOMException("Download cancelled", "AbortError");
-    /* fall through */
-  }
-
-  if (!response) {
-    const resp = await fetch(localUrl, { signal });
-    if (!resp.ok) {
-      throw new Error(
-        `Could not load the expression matrix from either ${remoteUrl} or ${localUrl}`
-      );
-    }
-    response = resp;
-  }
-
-  const contentLength = Number(response.headers.get("content-length") || 0);
-  const reader = response.body?.getReader();
-  if (!reader) throw new Error("Streaming downloads are not supported in this browser");
-
-  const abortHandler = () => { reader.cancel().catch(() => {}); };
-  signal?.addEventListener("abort", abortHandler);
-
-  const ensureLive = () => {
-    if (signal?.aborted) throw new DOMException("Download cancelled", "AbortError");
-  };
-
-  const totalMb = contentLength > 0 ? ` / ${(contentLength / 1e6).toFixed(0)}` : "";
-  let receivedBytes = 0;
-
-  const report = () => {
-    trackHeap();
-    const pct = contentLength > 0
-      ? Math.min(99, Math.round((receivedBytes / contentLength) * 100))
-      : 50;
-
-    onProgress(pct, `Downloading expression… ${(receivedBytes / 1e6).toFixed(0)}${totalMb} MB`);
-  };
-
-  try {
-    // Fast path: single preallocated buffer (no second copy)
-    if (contentLength > 0) {
-      const buffer = new Uint8Array(contentLength);
-      let overflow: Uint8Array[] | null = null;
-
-      while (true) {
-        const { done, value } = await reader.read();
-        ensureLive();
-        if (done) break;
-        if (receivedBytes + value.length <= contentLength) {
-          buffer.set(value, receivedBytes);
-        } else {
-          // Server under-reported the size; keep the tail separately
-          (overflow ||= []).push(value);
-        }
-        receivedBytes += value.length;
-        report();
-      }
-
-      if (!overflow && receivedBytes === contentLength) return buffer;
-      if (!overflow) return buffer.subarray(0, receivedBytes);
-
-      const merged = new Uint8Array(receivedBytes);
-      merged.set(buffer.subarray(0, contentLength), 0);
-      let offset = contentLength;
-      for (const chunk of overflow) {
-        merged.set(chunk, offset);
-        offset += chunk.length;
-      }
-      return merged;
-    }
-
-    // Unknown length: collect chunks, then concatenate once
-    const chunks: Uint8Array[] = [];
-    while (true) {
-      const { done, value } = await reader.read();
-      ensureLive();
-      if (done) break;
-      chunks.push(value);
-      receivedBytes += value.length;
-      report();
-    }
-
-    const fullBuffer = new Uint8Array(receivedBytes);
-    let offset = 0;
-    for (const chunk of chunks) {
-      fullBuffer.set(chunk, offset);
-      offset += chunk.length;
-    }
-    chunks.length = 0;
-    return fullBuffer;
-  } finally {
-    signal?.removeEventListener("abort", abortHandler);
-  }
-}
-
