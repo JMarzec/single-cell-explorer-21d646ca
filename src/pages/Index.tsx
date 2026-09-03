@@ -621,7 +621,7 @@ const Index = () => {
               {/* Gene Selection */}
               <div
                 data-tour="gene-selection"
-                className={!exprReady ? "opacity-60 pointer-events-none" : undefined}
+                className={!geneSelectionUsable ? "opacity-60 pointer-events-none" : undefined}
                 aria-busy={!exprReady && !remoteError && !exprCancelled}
               >
                 <GeneSelectionPanel
@@ -631,12 +631,15 @@ const Index = () => {
                 />
                 {!exprReady && (
                   <p className="mt-2 text-xs text-muted-foreground">
-                    {remoteError || exprCancelled
-                      ? "Gene expression is unavailable — the expression matrix could not be loaded."
-                      : "Gene expression becomes available once the expression matrix finishes loading."}
+                    {geneSelectionUsable
+                      ? "Showing demo expression values — your dataset could not be loaded."
+                      : remoteError || exprCancelled
+                        ? "Gene expression is unavailable — the expression matrix could not be loaded."
+                        : "Gene expression becomes available once the expression matrix finishes loading."}
                   </p>
                 )}
               </div>
+
               
               {/* Expression Level Legend */}
               {effectiveGeneLabel && !plotGeneUndetected && (
