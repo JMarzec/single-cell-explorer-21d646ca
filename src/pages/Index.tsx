@@ -607,17 +607,19 @@ const Index = () => {
               {/* Gene Selection */}
               <div
                 data-tour="gene-selection"
-                className={!exprReady && !remoteError ? "opacity-60 pointer-events-none" : undefined}
-                aria-busy={!exprReady && !remoteError}
+                className={!exprReady ? "opacity-60 pointer-events-none" : undefined}
+                aria-busy={!exprReady && !remoteError && !exprCancelled}
               >
                 <GeneSelectionPanel
                   genes={dataset.genes}
                   settings={settings}
                   onSettingsChange={handleSettingsChange}
                 />
-                {!exprReady && !remoteError && (
+                {!exprReady && (
                   <p className="mt-2 text-xs text-muted-foreground">
-                    Gene expression becomes available once the expression matrix finishes loading.
+                    {remoteError || exprCancelled
+                      ? "Gene expression is unavailable — the expression matrix could not be loaded."
+                      : "Gene expression becomes available once the expression matrix finishes loading."}
                   </p>
                 )}
               </div>
