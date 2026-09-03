@@ -89,12 +89,34 @@ export function normalizeDataset(data: unknown): SingleCellDataset {
 }
 
 // ---------------------------------------------------------------------------
-// Caching
+// Caching (per active dataset source)
 // ---------------------------------------------------------------------------
 let corePromise: Promise<SingleCellDataset> | null = null;
 let coreResult: SingleCellDataset | null = null;
 let exprPromise: Promise<ExpressionMatrix> | null = null;
 let exprResult: ExpressionMatrix | null = null;
+let cachedSourceId: string | null = null;
+
+/** Drop cached data when the user switches to another dataset. */
+function resetCachesIfSourceChanged() {
+  const id = getEffectiveSourceId();
+  if (cachedSourceId !== id) {
+    cachedSourceId = id;
+    corePromise = null;
+    coreResult = null;
+    exprPromise = null;
+    exprResult = null;
+  }
+}
+
+/** Explicitly clear every cached dataset (used after a dataset swap). */
+export function clearDatasetCaches() {
+  cachedSourceId = null;
+  corePromise = null;
+  coreResult = null;
+  exprPromise = null;
+  exprResult = null;
+}
 
 /**
  * Fetch the small core dataset (cells, clusters, genes, DE results) without the
@@ -103,6 +125,8 @@ let exprResult: ExpressionMatrix | null = null;
 export function fetchCoreDataset(
   onProgress?: (p: LoadProgress) => void
 ): Promise<SingleCellDataset> {
+  resetCachesIfSourceChanged();
+
   if (coreResult) {
     onProgress?.({ phase: "done", percent: 100, message: "Loaded from cache" });
     return Promise.resolve(coreResult);
@@ -127,6 +151,8 @@ export function fetchExpressionMatrix(
   onProgress?: (p: LoadProgress) => void,
   signal?: AbortSignal
 ): Promise<ExpressionMatrix> {
+  resetCachesIfSourceChanged();
+
   if (exprResult) {
     onProgress?.({ phase: "done", percent: 100, message: "Loaded from cache" });
     return Promise.resolve(exprResult);
