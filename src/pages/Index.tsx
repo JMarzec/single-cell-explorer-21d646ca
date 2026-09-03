@@ -189,6 +189,12 @@ const Index = () => {
     setExprAttempt((n) => n + 1);
   }, []);
 
+  // The demo fallback carries synthetic expression, so gene selection stays
+  // usable when the core dataset itself failed to download.
+  const geneSelectionUsable =
+    exprReady || (errorScope === "core" && dataset.syntheticExpression === true);
+
+
 
 
 
