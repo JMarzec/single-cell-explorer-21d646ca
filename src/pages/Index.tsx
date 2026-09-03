@@ -132,9 +132,11 @@ const Index = () => {
     fetchCoreDataset((p) => setLoadProgress(p))
       .then((core) => {
         if (cancelled) return;
+        coreLoadedRef.current = true;
         setDataset((prev) => (prev.expression ? { ...core, expression: prev.expression } : core));
         originalDatasetRef.current = core;
         setIsLoadingRemote(false);
+
         setExprCancelled(false);
         setExprProgress({ phase: "downloading", percent: 0, message: "Downloading expression matrix…" });
 
