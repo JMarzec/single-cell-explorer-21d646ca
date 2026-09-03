@@ -96,6 +96,15 @@ export function Header({ metadata, onStartTour }: HeaderProps) {
             </div>
 
             <Link
+              to="/dataset-swap"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary hover:bg-secondary/70 text-secondary-foreground text-sm font-medium transition-colors"
+              title="Switch or upload a dataset"
+            >
+              <Database className="h-3.5 w-3.5" />
+              Dataset
+            </Link>
+
+            <Link
               to="/showcase"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent/15 hover:bg-accent/25 text-accent-foreground text-sm font-medium transition-colors"
               title="Feature showcase"
