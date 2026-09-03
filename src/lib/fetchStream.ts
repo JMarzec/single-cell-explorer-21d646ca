@@ -3,16 +3,20 @@
  * Kept dependency-free so they can run inside a Web Worker.
  */
 
-/** Try remote URL first, fall back to local. */
+/** Try remote URL first, fall back to local when one is provided. */
 export async function fetchJsonWithFallback(
   remoteUrl: string,
-  localUrl: string
+  localUrl?: string
 ): Promise<unknown> {
   try {
     const resp = await fetch(remoteUrl);
     if (resp.ok) return await resp.json();
   } catch {
     /* fall through */
+  }
+
+  if (!localUrl) {
+    throw new Error(`Could not load the core dataset from ${remoteUrl}`);
   }
 
   const resp = await fetch(localUrl);
@@ -31,7 +35,7 @@ export async function fetchJsonWithFallback(
  */
 export async function streamFetchBytes(
   remoteUrl: string,
-  localUrl: string,
+  localUrl: string | undefined,
   onProgress: (pct: number, msg: string) => void,
   signal?: AbortSignal
 ): Promise<Uint8Array> {
@@ -46,6 +50,9 @@ export async function streamFetchBytes(
   }
 
   if (!response) {
+    if (!localUrl) {
+      throw new Error(`Could not load the expression matrix from ${remoteUrl}`);
+    }
     const resp = await fetch(localUrl, { signal });
     if (!resp.ok) {
       throw new Error(

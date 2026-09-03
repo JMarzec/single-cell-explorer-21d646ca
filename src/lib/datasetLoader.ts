@@ -3,11 +3,11 @@ import { parseSparseExpression, SparseGene } from "@/lib/msgpackSparse";
 import { SparseExpressionMatrix, matrixFromRecord } from "@/lib/expressionMatrix";
 import { startPhase, getPeakHeapMB, trackHeap } from "@/lib/perf";
 import {
-  REMOTE_CORE_URL,
-  REMOTE_EXPR_URL,
-  LOCAL_CORE_URL,
-  LOCAL_EXPR_URL,
-} from "@/lib/datasetConfig";
+  getActiveSource,
+  getEffectiveSourceId,
+  getUploadedDataset,
+  BUILT_IN_SOURCE,
+} from "@/lib/datasetRegistry";
 import { fetchJsonWithFallback, streamFetchBytes } from "@/lib/fetchStream";
 import type { WorkerRequest, WorkerResponse } from "@/workers/datasetWorker";
 
@@ -89,12 +89,34 @@ export function normalizeDataset(data: unknown): SingleCellDataset {
 }
 
 // ---------------------------------------------------------------------------
-// Caching
+// Caching (per active dataset source)
 // ---------------------------------------------------------------------------
 let corePromise: Promise<SingleCellDataset> | null = null;
 let coreResult: SingleCellDataset | null = null;
 let exprPromise: Promise<ExpressionMatrix> | null = null;
 let exprResult: ExpressionMatrix | null = null;
+let cachedSourceId: string | null = null;
+
+/** Drop cached data when the user switches to another dataset. */
+function resetCachesIfSourceChanged() {
+  const id = getEffectiveSourceId();
+  if (cachedSourceId !== id) {
+    cachedSourceId = id;
+    corePromise = null;
+    coreResult = null;
+    exprPromise = null;
+    exprResult = null;
+  }
+}
+
+/** Explicitly clear every cached dataset (used after a dataset swap). */
+export function clearDatasetCaches() {
+  cachedSourceId = null;
+  corePromise = null;
+  coreResult = null;
+  exprPromise = null;
+  exprResult = null;
+}
 
 /**
  * Fetch the small core dataset (cells, clusters, genes, DE results) without the
@@ -103,6 +125,8 @@ let exprResult: ExpressionMatrix | null = null;
 export function fetchCoreDataset(
   onProgress?: (p: LoadProgress) => void
 ): Promise<SingleCellDataset> {
+  resetCachesIfSourceChanged();
+
   if (coreResult) {
     onProgress?.({ phase: "done", percent: 100, message: "Loaded from cache" });
     return Promise.resolve(coreResult);
@@ -127,6 +151,8 @@ export function fetchExpressionMatrix(
   onProgress?: (p: LoadProgress) => void,
   signal?: AbortSignal
 ): Promise<ExpressionMatrix> {
+  resetCachesIfSourceChanged();
+
   if (exprResult) {
     onProgress?.({ phase: "done", percent: 100, message: "Loaded from cache" });
     return Promise.resolve(exprResult);
@@ -233,16 +259,39 @@ async function loadCoreDataset(
   onProgress?.({ phase: "downloading", percent: 0, message: "Loading core data…" });
   const endPhase = startPhase("core dataset load");
 
+  const source = getActiveSource();
+
+  // Uploaded datasets are already parsed and live in memory.
+  if (source.kind === "uploaded") {
+    const uploaded = getUploadedDataset(getEffectiveSourceId());
+    if (!uploaded) {
+      throw new Error(
+        "The uploaded dataset is no longer in memory (uploads are session-only). Upload it again from the Dataset Swap page."
+      );
+    }
+    coreResult = uploaded;
+    exprResult = uploaded.expression ?? null;
+    endPhase({ cells: uploaded.cells.length, genes: uploaded.genes.length });
+    onProgress?.({ phase: "done", percent: 100, message: "Uploaded dataset ready" });
+    return uploaded;
+  }
+
+  const coreUrl = source.coreUrl ?? BUILT_IN_SOURCE.coreUrl!;
+  const localCoreUrl = source.localCoreUrl;
+
   let coreData: unknown;
   try {
-    const msg = await runInWorker({ type: "core" }, onProgress);
+    const msg = await runInWorker(
+      { type: "core", url: coreUrl, localUrl: localCoreUrl },
+      onProgress
+    );
     if (msg.type !== "core-done") throw new Error("Unexpected worker response");
     coreData = msg.data;
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") throw e;
     // Workers unavailable (or blocked): fall back to the main thread.
     console.warn("Dataset worker unavailable, loading core data on main thread:", e);
-    coreData = await fetchJsonWithFallback(REMOTE_CORE_URL, LOCAL_CORE_URL);
+    coreData = await fetchJsonWithFallback(coreUrl, localCoreUrl);
   }
 
   const dataset = normalizeDataset(coreData);
@@ -261,6 +310,24 @@ async function loadExpressionMatrix(
   onProgress?: (p: LoadProgress) => void,
   signal?: AbortSignal
 ): Promise<ExpressionMatrix> {
+  const source = getActiveSource();
+
+  if (source.kind === "uploaded") {
+    const uploaded = getUploadedDataset(getEffectiveSourceId());
+    const matrix =
+      uploaded?.expression ?? new SparseExpressionMatrix(new Map(), cellIds);
+    exprResult = matrix;
+    onProgress?.({ phase: "done", percent: 100, message: "Expression matrix ready" });
+    return matrix;
+  }
+
+  const exprUrl = source.exprUrl;
+  if (!exprUrl) {
+    throw new Error(
+      `No expression matrix URL is configured for "${source.name}". Add one on the Dataset Swap page.`
+    );
+  }
+
   onProgress?.({
     phase: "downloading",
     percent: 0,
@@ -271,7 +338,11 @@ async function loadExpressionMatrix(
   let sparse: Map<string, SparseGene>;
 
   try {
-    const msg = await runInWorker({ type: "expression" }, onProgress, signal);
+    const msg = await runInWorker(
+      { type: "expression", url: exprUrl, localUrl: source.localExprUrl },
+      onProgress,
+      signal
+    );
     if (msg.type !== "expression-done") throw new Error("Unexpected worker response");
     sparse = new Map<string, SparseGene>();
     for (let i = 0; i < msg.genes.length; i++) {
@@ -286,7 +357,12 @@ async function loadExpressionMatrix(
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") throw e;
     console.warn("Dataset worker unavailable, decoding expression on main thread:", e);
-    sparse = await loadExpressionOnMainThread(onProgress, signal);
+    sparse = await loadExpressionOnMainThread(
+      exprUrl,
+      source.localExprUrl,
+      onProgress,
+      signal
+    );
     endPhase({ genes: sparse.size, peakHeapMB: Number(getPeakHeapMB().toFixed(1)) });
   }
 
@@ -298,12 +374,14 @@ async function loadExpressionMatrix(
 
 /** Fallback path for browsers without module workers. */
 async function loadExpressionOnMainThread(
+  exprUrl: string,
+  localExprUrl: string | undefined,
   onProgress?: (p: LoadProgress) => void,
   signal?: AbortSignal
 ): Promise<Map<string, SparseGene>> {
   const bytes = await streamFetchBytes(
-    REMOTE_EXPR_URL,
-    LOCAL_EXPR_URL,
+    exprUrl,
+    localExprUrl,
     (pct, msg) => {
       trackHeap();
       onProgress?.({ phase: "downloading", percent: pct, message: msg });
