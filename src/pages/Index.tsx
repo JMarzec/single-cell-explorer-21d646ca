@@ -114,10 +114,13 @@ const Index = () => {
   const [exprReady, setExprReady] = useState(false);
   const [exprCancelled, setExprCancelled] = useState(false);
   const [remoteError, setRemoteError] = useState<string | null>(null);
+  const [errorScope, setErrorScope] = useState<"core" | "expression" | null>(null);
   const [tourOpen, setTourOpen] = useState(false);
   const originalDatasetRef = useRef<SingleCellDataset>(defaultDataset);
+  const coreLoadedRef = useRef(false);
   const exprAbortRef = useRef<AbortController | null>(null);
   const [exprAttempt, setExprAttempt] = useState(0);
+
 
   // Load the small core dataset first so the dashboard renders quickly,
   // then stream the expression matrix in the background (cancellable).
@@ -129,9 +132,11 @@ const Index = () => {
     fetchCoreDataset((p) => setLoadProgress(p))
       .then((core) => {
         if (cancelled) return;
+        coreLoadedRef.current = true;
         setDataset((prev) => (prev.expression ? { ...core, expression: prev.expression } : core));
         originalDatasetRef.current = core;
         setIsLoadingRemote(false);
+
         setExprCancelled(false);
         setExprProgress({ phase: "downloading", percent: 0, message: "Downloading expression matrix…" });
 
@@ -163,6 +168,7 @@ const Index = () => {
         const msg = err instanceof Error ? err.message : String(err);
         console.error("Failed to load remote dataset:", msg);
         setRemoteError(msg);
+        setErrorScope(coreLoadedRef.current ? "expression" : "core");
       });
 
     return () => {
@@ -179,8 +185,16 @@ const Index = () => {
   const handleRetryExpression = useCallback(() => {
     setExprCancelled(false);
     setRemoteError(null);
+    setErrorScope(null);
     setExprAttempt((n) => n + 1);
   }, []);
+
+  // The demo fallback carries synthetic expression, so gene selection stays
+  // usable when the core dataset itself failed to download.
+  const geneSelectionUsable =
+    exprReady || (errorScope === "core" && dataset.syntheticExpression === true);
+
+
 
 
 
@@ -416,11 +430,17 @@ const Index = () => {
       {remoteError && (
         <div className="bg-destructive/10 border-b border-destructive/30 px-4 py-3 text-center">
           <p className="text-sm text-destructive font-medium">
-            ⚠ Failed to load the expression matrix: {remoteError}
+            ⚠{" "}
+            {errorScope === "core"
+              ? `Failed to load the selected dataset: ${remoteError}`
+              : `Failed to load the expression matrix: ${remoteError}`}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            Cells and annotations are shown from the real dataset, but gene expression is unavailable — no expression values are displayed.
+            {errorScope === "core"
+              ? "Showing the built-in demo dataset instead — the cells, annotations and expression values below are illustrative demo data, not your dataset."
+              : "Cells and annotations are shown from the real dataset, but gene expression is unavailable — no expression values are displayed."}
           </p>
+
           <button
             onClick={handleRetryExpression}
             className="mt-2 text-xs font-medium text-primary underline hover:no-underline"
@@ -607,7 +627,7 @@ const Index = () => {
               {/* Gene Selection */}
               <div
                 data-tour="gene-selection"
-                className={!exprReady ? "opacity-60 pointer-events-none" : undefined}
+                className={!geneSelectionUsable ? "opacity-60 pointer-events-none" : undefined}
                 aria-busy={!exprReady && !remoteError && !exprCancelled}
               >
                 <GeneSelectionPanel
@@ -617,12 +637,15 @@ const Index = () => {
                 />
                 {!exprReady && (
                   <p className="mt-2 text-xs text-muted-foreground">
-                    {remoteError || exprCancelled
-                      ? "Gene expression is unavailable — the expression matrix could not be loaded."
-                      : "Gene expression becomes available once the expression matrix finishes loading."}
+                    {geneSelectionUsable
+                      ? "Showing demo expression values — your dataset could not be loaded."
+                      : remoteError || exprCancelled
+                        ? "Gene expression is unavailable — the expression matrix could not be loaded."
+                        : "Gene expression becomes available once the expression matrix finishes loading."}
                   </p>
                 )}
               </div>
+
               
               {/* Expression Level Legend */}
               {effectiveGeneLabel && !plotGeneUndetected && (
