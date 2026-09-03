@@ -25,24 +25,34 @@ export function getExpressionData(
   }
 
   // Demo dataset only: generated illustrative values
-  return getDemoGeneExpression(dataset.cells, gene);
+  if (dataset.syntheticExpression) {
+    return getDemoGeneExpression(dataset.cells, gene);
+  }
+
+  // Real dataset without a loaded matrix: no expression data available
+  const result = new Map<string, number>();
+  for (const cell of dataset.cells) result.set(cell.id, 0);
+  return result;
 }
 
 /**
- * Genes that are missing from the loaded expression matrix.
- * Returns an empty list when no matrix is loaded yet (state is "pending",
- * not "absent"), so callers never claim a gene is undetected prematurely.
+ * Genes that have no expression data available.
+ * When no matrix is loaded for a real dataset, every requested gene is
+ * unavailable — never fall back to fabricated values.
  */
 export function getUndetectedGenes(
   dataset: SingleCellDataset,
   genes: string[]
 ): string[] {
   const matrix = dataset.expression;
-  if (!matrix) return [];
+  if (!matrix) {
+    if (dataset.syntheticExpression) return [];
+    return genes.filter(Boolean);
+  }
   return genes.filter((g) => g && !matrix.hasGene(g));
 }
 
-/** True when a matrix is loaded and the gene has no entries in it. */
+/** True when the gene has no expression data available. */
 export function isGeneUndetected(
   dataset: SingleCellDataset,
   gene: string | null

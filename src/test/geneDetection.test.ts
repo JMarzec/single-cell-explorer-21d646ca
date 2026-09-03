@@ -37,8 +37,15 @@ describe("gene detection state", () => {
     expect([...values.values()]).toEqual([0, 0]);
   });
 
-  it("treats a missing matrix as pending, not absent", () => {
-    const pending = { ...dataset, expression: undefined };
-    expect(getUndetectedGenes(pending, ["MISSING"])).toEqual([]);
+  it("marks all genes unavailable and zeroed when a real dataset has no matrix", () => {
+    const noMatrix = { ...dataset, expression: undefined };
+    expect(getUndetectedGenes(noMatrix, ["A", "MISSING"])).toEqual(["A", "MISSING"]);
+    expect(isGeneUndetected(noMatrix, "A")).toBe(true);
+    expect([...getExpressionData(noMatrix, "A").values()]).toEqual([0, 0]);
+  });
+
+  it("still allows illustrative values for the built-in demo dataset", () => {
+    const demo = { ...dataset, expression: undefined, syntheticExpression: true };
+    expect(getUndetectedGenes(demo, ["MISSING"])).toEqual([]);
   });
 });

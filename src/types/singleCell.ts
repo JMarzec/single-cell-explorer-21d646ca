@@ -61,6 +61,8 @@ export interface SingleCellDataset {
   differentialExpression: DifferentialExpression[];
   // Expression values, sparsely stored (undefined until loaded)
   expression?: ExpressionMatrix;
+  /** True only for the built-in demo dataset, where illustrative expression values may be generated. */
+  syntheticExpression?: boolean;
   // Metadata annotation options (e.g., cell_type, sample)
   annotationOptions?: string[];
 }
