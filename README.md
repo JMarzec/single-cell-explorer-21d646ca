@@ -53,9 +53,12 @@ The app will be available at `http://localhost:5173`
 
 ## Data Format
 
-### Swapping in your own dataset (build-time)
+### Swapping in your own dataset
 
-Use **/dataset-swap** for ad-hoc swaps. To change the shipped default, export your Seurat/Scanpy
+Use **/dataset-swap** for ad-hoc swaps (upload or URL). To change the shipped default, export
+your Seurat/Scanpy object to the JSON format below, then split and compress it for the browser:
+
+
 
 ```bash
 python scripts/compress_dataset.py my_dataset.json public/
