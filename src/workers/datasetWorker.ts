@@ -4,25 +4,24 @@
  * expression matrix off the main thread, so the dashboard stays interactive
  * and animations never stutter while a few hundred MB stream in.
  *
+ * URLs are supplied by the caller (see src/lib/datasetRegistry.ts), so the
+ * active dataset can be swapped at runtime.
+ *
  * Protocol (main -> worker):
- *   { type: "core" }
- *   { type: "expression" }
+ *   { type: "core", url, localUrl? }
+ *   { type: "expression", url, localUrl? }
  * Protocol (worker -> main):
  *   { type: "progress", phase, percent, message }
  *   { type: "core-done", data }
  *   { type: "expression-done", genes, indices[], values[] }   (buffers transferred)
  *   { type: "error", message }
  */
-import {
-  REMOTE_CORE_URL,
-  REMOTE_EXPR_URL,
-  LOCAL_CORE_URL,
-  LOCAL_EXPR_URL,
-} from "@/lib/datasetConfig";
 import { fetchJsonWithFallback, streamFetchBytes } from "@/lib/fetchStream";
 import { parseSparseExpression } from "@/lib/msgpackSparse";
 
-export type WorkerRequest = { type: "core" } | { type: "expression" };
+export type WorkerRequest =
+  | { type: "core"; url: string; localUrl?: string }
+  | { type: "expression"; url: string; localUrl?: string };
 
 export type WorkerResponse =
   | { type: "progress"; phase: "downloading" | "parsing"; percent: number; message: string }
@@ -48,18 +47,20 @@ const progress = (
 
 self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
   try {
-    if (event.data.type === "core") {
+    const request = event.data;
+
+    if (request.type === "core") {
       progress("downloading", 0, "Loading core data…");
-      const data = await fetchJsonWithFallback(REMOTE_CORE_URL, LOCAL_CORE_URL);
+      const data = await fetchJsonWithFallback(request.url, request.localUrl);
       progress("parsing", 100, "Core data loaded");
       post({ type: "core-done", data });
       return;
     }
 
-    if (event.data.type === "expression") {
+    if (request.type === "expression") {
       const bytes = await streamFetchBytes(
-        REMOTE_EXPR_URL,
-        LOCAL_EXPR_URL,
+        request.url,
+        request.localUrl,
         (pct, msg) => progress("downloading", pct, msg)
       );
 
