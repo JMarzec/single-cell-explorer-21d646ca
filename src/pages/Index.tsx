@@ -2,6 +2,8 @@ import React, { useState, useMemo, useCallback } from "react";
 import { Helmet } from "react-helmet-async";
 import { ChevronDown } from "lucide-react";
 import { Header } from "@/components/layout/Header";
+import { DatasetSelector } from "@/components/layout/DatasetSelector";
+import { DatasetScope } from "@/components/layout/DatasetScope";
 import { ScatterPlot } from "@/components/scatter/ScatterPlot";
 import { CellFilter } from "@/components/controls/CellFilter";
 import { DisplayOptions } from "@/components/controls/DisplayOptions";
@@ -269,6 +271,9 @@ const Index = () => {
           <p className="text-muted-foreground text-sm" role="status" aria-live="polite">
             {loadProgress.message}
           </p>
+        </div>
+        <div className="w-64 max-w-full px-2">
+          <DatasetSelector />
         </div>
         <div className="w-64">
           <Progress value={showPercent ? loadProgress.percent : undefined} className="h-2" />
@@ -671,4 +676,6 @@ const Index = () => {
   );
 };
 
-export default Index;
+export default function DatasetExplorer() {
+  return <DatasetScope><Index /></DatasetScope>;
+}

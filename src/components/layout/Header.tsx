@@ -3,6 +3,7 @@ import { Info, Search, MousePointer2, Palette, BarChart3, GitCompareArrows, Play
 import { Link } from "react-router-dom";
 import { Button } from '@/components/ui/button';
 import { DatasetMetadata } from "@/types/singleCell";
+import { DatasetSelector } from "@/components/layout/DatasetSelector";
 import accelBioLogo from "@/assets/AccelBio_logo.png";
 import {
   Dialog,
@@ -72,7 +73,7 @@ export function Header({ metadata, onStartTour }: HeaderProps) {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 md:gap-6">
+          <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 md:gap-6">
             <div className="hidden md:flex items-center gap-6">
               <div className="text-center">
                 <div className="text-lg font-semibold text-foreground">
@@ -96,13 +97,15 @@ export function Header({ metadata, onStartTour }: HeaderProps) {
               </div>
             </div>
 
+            <DatasetSelector />
+
             <Link
               to="/dataset-swap"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary hover:bg-secondary/70 text-secondary-foreground text-sm font-medium transition-colors"
-              title="Switch or upload a dataset"
+              title="Add or manage datasets"
             >
               <Database className="h-3.5 w-3.5" />
-              Dataset
+              Manage datasets
             </Link>
 
             <Link
