@@ -6,7 +6,7 @@ import { CellTooltip } from "./CellTooltip";
 import { ExportControls } from "./ExportControls";
 import { SelectionTools, SelectionMode } from "./SelectionTools";
 
-import { parseColorToRGBA, visualizationColor } from "@/lib/scatterColors";
+import { parseColorToRGBA, visualizationColor, visualizationColorAlpha } from "@/lib/scatterColors";
 import { filterCells } from "@/lib/expressionSummary";
 import { Button } from "@/components/ui/button";
 
@@ -336,7 +336,7 @@ export function ScatterPlot({
     // Draw selection overlay
     if (isSelecting) {
       ctx.strokeStyle = visualizationColor("--primary");
-      ctx.fillStyle = visualizationColor("--secondary");
+      ctx.fillStyle = visualizationColorAlpha("--secondary", 0.1);
       ctx.lineWidth = 2;
       ctx.setLineDash([5, 5]);
       

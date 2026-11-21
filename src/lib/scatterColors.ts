@@ -25,3 +25,7 @@ export function parseColorToRGBA(color: string, alpha = 1): [number, number, num
 export function visualizationColor(name: string): string {
   return `hsl(${getComputedStyle(document.documentElement).getPropertyValue(name).trim()})`;
 }
+export function visualizationColorAlpha(name: string, alpha: number): string {
+  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return `hsl(${value} / ${Math.max(0, Math.min(1, alpha))})`;
+}
